@@ -1,0 +1,1 @@
+savedcmd_/home/yukikaze/code/simulate_driver/hellowd_platform.mod := printf '%s\n'   hellowd_platform.o | awk '!x[$$0]++ { print("/home/yukikaze/code/simulate_driver/"$$0) }' > /home/yukikaze/code/simulate_driver/hellowd_platform.mod
