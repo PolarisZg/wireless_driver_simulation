@@ -1,1 +1,0 @@
-savedcmd_/home/yukikaze/code/simulate_driver/Module.symvers :=  scripts/mod/modpost -m -a      -o /home/yukikaze/code/simulate_driver/Module.symvers -T /home/yukikaze/code/simulate_driver/modules.order -i Module.symvers -e 
