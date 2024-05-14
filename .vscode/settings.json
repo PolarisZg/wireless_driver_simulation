@@ -50,7 +50,7 @@
         "arch/arm/boot/dts/*.tmp":true,       
     },
     "files.exclude": {
-        "**/.git": true,
+        "**/.git": false,
         "**/.svn": true,
         "**/.hg": true,
         "**/CVS": true,
@@ -59,6 +59,8 @@
         "**/*.su":true, 
         "**/*.cmd":true,
         "**/*.d":true,
+        "*.mod":true,
+        "*.mod.c":true,
         "Documentation":true, 
         "openwifi-hw/":true,
 
