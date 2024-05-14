@@ -29,5 +29,5 @@ static struct platform_driver hellowd_dev_driver = {
 
 module_platform_driver(hellowd_dev_driver);
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("yukikaze");
+MODULE_AUTHOR("PolarisZg");
 MODULE_DESCRIPTION("hello world platform");

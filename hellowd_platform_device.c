@@ -43,5 +43,5 @@ module_init(hellowd_dev_init);
 module_exit(hellowd_dev_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("yukikaze");
+MODULE_AUTHOR("PolarisZg");
 MODULE_DESCRIPTION("hello world platform dev");
