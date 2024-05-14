@@ -61,6 +61,8 @@
         "**/*.d":true,
         "*.mod":true,
         "*.mod.c":true,
+        "*.symvers":true,
+        "*.order":true,
         "Documentation":true, 
         "openwifi-hw/":true,
 
