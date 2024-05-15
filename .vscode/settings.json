@@ -1,7 +1,10 @@
 {
     "files.associations": {
         "module.h": "c",
-        "platform_device.h": "c"
+        "platform_device.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c"
     },
     "search.exclude": {
         "**/node_modules": true,
