@@ -8,3 +8,6 @@
 *.o.d
 *.mod*.cmd
 .*.cmd
+node_modules/
+package-lock.json
+package.json
