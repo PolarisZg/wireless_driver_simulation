@@ -183,6 +183,9 @@ static int simuwifi_dev_probe(struct platform_device *pdev)
     struct ieee80211_hw *dev;
     struct simuwifi_host_priv *priv;
 
+    // 设备树结点匹配检查
+
+    // 为ieee设备分配内存
     dev = ieee80211_alloc_hw(sizeof(*priv), &simuwifi_ops);
     if (!dev)
     {
@@ -195,9 +198,13 @@ static int simuwifi_dev_probe(struct platform_device *pdev)
     if (simuwifi_netlink_init(priv))
         goto err_free_dev;
 
-    
     SET_IEEE80211_DEV(dev, &pdev->dev);
     platform_set_drvdata(pdev, dev);
+    
+    
+    
+    
+    
     return 0;
 
 err_free_dev:
