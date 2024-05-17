@@ -40,7 +40,7 @@ static const struct ieee80211_ops simuwifi_ops = {
 };
 ```
 
-另外还需要实现当网卡设备被kernel识别并与响应的驱动对应上时被自动调用的两个函数：
+另外还需要实现当虚拟网卡被host端kernel识别并拉起对应驱动时被自动调用的两个函数：
 
 ```c
 static struct platform_driver simuwifi_dev_driver = {
@@ -80,3 +80,14 @@ static struct platform_driver simuwifi_dev_driver = {
     ```shell
     iw dev
     ```
+
+## to do
+
+1. openwrt 源码编译
+
+
+2. qemu 源码编译
+
+3. qemu 虚拟设备编译
+
+4. openwrt 驱动编译
