@@ -1,7 +1,3 @@
-[submodule "qemu_simudevice"]
-	path = qemu_simudevice
-	url = git@github.com:PolarisZg/qemu_simudevice.git
-	branch = PolarisZg_9.0.0
 [submodule "buildroot"]
 	path = buildroot
 	url = git@github.com:PolarisZg/buildroot.git
