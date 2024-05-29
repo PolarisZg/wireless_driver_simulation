@@ -1,3 +1,4 @@
+# 启动物理机中网卡的ap模式并添加一个monitor interface
 set -x
 
 rm -r -f ./hostapd.conf
