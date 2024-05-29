@@ -1,4 +1,0 @@
-[submodule "buildroot"]
-	path = buildroot
-	url = git@github.com:PolarisZg/buildroot.git
-	branch = PolarisZg
