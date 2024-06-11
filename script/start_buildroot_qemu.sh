@@ -11,4 +11,5 @@ $BUILDROOT_QEMU -M pc \
 -kernel $BUILDROOT_LINUX \
 -drive file=$BUILDROOT_LINUXFS,if=virtio,format=raw \
 -append "rootwait root=/dev/vda console=tty1 console=ttyS0" \
--net nic,model=virtio 
+-net nic,model=virtio \
+-device hellodev-pci
