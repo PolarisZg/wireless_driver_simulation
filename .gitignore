@@ -8,10 +8,14 @@
 *.o.d
 *.mod*.cmd
 .*.cmd
+*.img
+*.iso
+*.qcow2
 node_modules/
 package-lock.json
 package.json
-
+ninja.log
+temp/
 openwrt/
 buildroot/
 qemu
