@@ -1,6 +1,7 @@
 CURRENT_DIR=$(pwd)
 
-KERNEL_DIR=/usr/src/linux-headers-6.5.0-28-generic
+KERNEL_VERSION=(uname -r)
+KERNEL_DIR=/usr/src/linux-headers-$KERNEL_VERSION
 
 set -x
 for file in *.c; do
