@@ -27,7 +27,9 @@
         "type_traits": "c",
         "utility": "c",
         "variant": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "io.h": "c",
+        "random": "c"
     },
     "search.exclude": {
         "**/node_modules": true,
