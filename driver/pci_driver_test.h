@@ -7,6 +7,7 @@ struct test_pci {
     void __iomem *mmio_addr;
     u32 cdev_num;
     struct cdev *char_dev;
+    struct class *dev_class;
 };
 
 #endif
