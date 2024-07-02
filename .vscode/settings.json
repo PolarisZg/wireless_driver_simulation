@@ -29,7 +29,9 @@
         "variant": "c",
         "types.h": "c",
         "io.h": "c",
-        "random": "c"
+        "random": "c",
+        "strstream": "c",
+        "streambuf": "c"
     },
     "search.exclude": {
         "**/node_modules": true,
