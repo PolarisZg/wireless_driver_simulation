@@ -12,7 +12,6 @@
 #include "pci_driver_test.h"
 
 #define PCI_TEST_DEVICE_NAME "pci_driver_test"
-#define PCI_TEST_CDEVICE_NAME "pci_driver_test_cdev"
 #define PCI_VENDOR_ID_QEMU 0x1234
 #define TEST_PCI_DEVICE_ID 0x0721
 #define TEST_PCI_BUFF_SIZE 0x100
@@ -35,7 +34,6 @@ static int test_pci_frelease(struct inode *inode, struct file *file)
 ssize_t test_pci_fread(struct file *file, char __user *data, size_t len, loff_t *l)
 {
     pr_info("%s : read start \n", PCI_TEST_DEVICE_NAME);
-    int err = 0;
     if (len > TEST_PCI_BUFF_SIZE || len < 0)
     {
         pr_err("%s : data length so long \n", PCI_TEST_DEVICE_NAME);
@@ -53,7 +51,6 @@ ssize_t test_pci_fread(struct file *file, char __user *data, size_t len, loff_t 
 ssize_t test_pci_fwrite(struct file *file, const char __user *data, size_t len, loff_t *l)
 {
     pr_info("%s : write start \n", PCI_TEST_DEVICE_NAME);
-    int err = 0;
     if (len > TEST_PCI_BUFF_SIZE || len < 0)
     {
         pr_err("%s : data length so long \n", PCI_TEST_DEVICE_NAME);
@@ -120,73 +117,22 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
     }
     pr_info("%s , pci device request mmio addr done : %p \n", PCI_TEST_DEVICE_NAME, mmio_addr);
 
-    // 测试用，字符设备
+    // 测试用
     // 实际需要修改为mac80211子系统相关
 
-    // 简单测试一下写入：
-    iowrite8('h', mmio_addr);
-    iowrite8('e', mmio_addr + 1);
-    iowrite8('l', mmio_addr + 2);
-    iowrite8('l', mmio_addr + 3);
-    iowrite8('o', mmio_addr + 4);
-    iowrite8('\0', mmio_addr + 5);
-    // u32 test_pci_cdev_num;
-    // err = alloc_chrdev_region(&test_pci_cdev_num, 0, 1, PCI_TEST_CDEVICE_NAME);
-    // if (err < 0)
-    // {
-    //     dev_err(&pdev->dev, "%s : char dev alloc failed \n", PCI_TEST_DEVICE_NAME);
-    //     pci_iounmap(pdev, mmio_addr);
-    //     pci_release_regions(pdev);
-    //     pci_disable_device(pdev);
-    //     return err;
-    // }
-
-    // struct cdev *test_pci_cdev;
-    // cdev_init(test_pci_cdev, &test_pci_fops);
-    // err = cdev_add(test_pci_cdev, test_pci_cdev_num, 1);
-    // if (err < 0)
-    // {
-    //     dev_err(&pdev->dev, "%s : char dev add kernel map failed \n", PCI_TEST_DEVICE_NAME);
-    //     unregister_chrdev_region(test_pci_cdev_num, 1);
-    //     pci_iounmap(pdev, mmio_addr);
-    //     pci_release_regions(pdev);
-    //     pci_disable_device(pdev);
-    //     return err;
-    // }
-    // pr_info("%s : pci device add char device done : char device num : %d \n", PCI_TEST_DEVICE_NAME, test_pci_cdev_num);
-
-    // struct class *dev_class;
-    // dev_class = class_create("test_pci_char_class");
-    // if (IS_ERR(dev_class))
-    // {
-    //     unregister_chrdev_region(test_pci_cdev_num, 1);
-    //     pci_iounmap(pdev, mmio_addr);
-    //     pci_release_regions(pdev);
-    //     pci_disable_device(pdev);
-    //     pr_err("failed to create device class\n");
-    //     return -1;
-    // }
-
-    // // Create device file
-    // if (device_create(dev_class, NULL, test_pci_cdev_num, NULL, "test_pci_cdev") == NULL)
-    // {
-    //     class_destroy(dev_class);
-    //     unregister_chrdev_region(test_pci_cdev_num, 1);
-    //     pci_iounmap(pdev, mmio_addr);
-    //     pci_release_regions(pdev);
-    //     pci_disable_device(pdev);
-    //     pr_err("failed to create device\n");
-    //     return -1;
-    // }
-    // pr_info("%s : pci device add device file done \n", PCI_TEST_DEVICE_NAME);
+    // io测试：
+    iowrite32(0x00, mmio_addr + 0x20);
+    u32 val = ('a' << 24) + ('b' << 16) + ('c' << 8) + 'd';
+    pr_info("%s : val : %08x \n", PCI_TEST_DEVICE_NAME, val);
+    iowrite32(val, mmio_addr + 0x10);
+    val = ioread32(mmio_addr + 0x20);
+    pr_info("%s : val lenth write : %08x \n", PCI_TEST_DEVICE_NAME, val);
+    val = ioread32(mmio_addr + 0x10);
+    pr_info("%s : val value write : %08x \n", PCI_TEST_DEVICE_NAME, val);
 
     size_t priv_size = 0;
     test_pci_priv = kzalloc(sizeof(*test_pci_priv) + priv_size, GFP_KERNEL);
     test_pci_priv->mmio_addr = mmio_addr;
-    // test_pci_priv->cdev_num = test_pci_cdev_num;
-    // test_pci_priv->pci_dev = pdev;
-    // test_pci_priv->char_dev = test_pci_cdev;
-    // test_pci_priv->dev_class = dev_class;
     pci_set_drvdata(pdev, test_pci_priv);
     pr_info("%s : pci device probe done \n", PCI_TEST_DEVICE_NAME);
     return 0;
@@ -198,10 +144,7 @@ static void test_pci_remove(struct pci_dev *pdev)
     struct test_pci *test_pci_priv = pci_get_drvdata(pdev);
     if (test_pci_priv)
     {
-        // device_destroy(test_pci_priv->dev_class, test_pci_priv->cdev_num);
-        // class_destroy(test_pci_priv->dev_class);
-        // cdev_del(test_pci_priv->char_dev);
-        // unregister_chrdev_region(test_pci_priv->cdev_num, 1);
+        iowrite32(0x00, test_pci_priv->mmio_addr + 0x20);
         pci_iounmap(pdev, test_pci_priv->mmio_addr);
         pci_release_regions(pdev);
         pci_disable_device(pdev);
