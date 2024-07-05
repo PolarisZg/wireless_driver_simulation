@@ -7,6 +7,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/types.h>
+#include <linux/msi.h>
 #include <asm-generic/io.h>
 
 #include "pci_driver_test.h"
@@ -16,64 +17,20 @@
 #define TEST_PCI_DEVICE_ID 0x0721
 #define TEST_PCI_BUFF_SIZE 0x100
 #define TEST_PCI_BAR_NUM 0
+#define TEST_PCI_DMA_MASK 36
 static void __iomem *mmio_addr = NULL;
 static struct test_pci *test_pci_priv = NULL;
 
-static int test_pci_fopen(struct inode *inode, struct file *file)
+static irqreturn_t test_pci_irq_handler(int irq, void *dev)
 {
-    pr_info("%s : pci device cdev open \n", PCI_TEST_DEVICE_NAME);
-    return 0;
+    struct pci_dev *pdev = dev;
+    struct test_pci *priv = pci_get_drvdata(pdev);
+    pr_info("%s : interrupt start , ioaddr : %p \n", PCI_TEST_DEVICE_NAME, priv->mmio_addr);
+    u32 val = ioread32(priv->mmio_addr + 0x30);
+    pr_info("%s : interrupt type %08x \n", PCI_TEST_DEVICE_NAME, val);
+    iowrite32(0, priv->mmio_addr + 0x30);
+    return IRQ_HANDLED;
 }
-
-static int test_pci_frelease(struct inode *inode, struct file *file)
-{
-    pr_info("%s : pci device cdev release \n", PCI_TEST_DEVICE_NAME);
-    return 0;
-}
-
-ssize_t test_pci_fread(struct file *file, char __user *data, size_t len, loff_t *l)
-{
-    pr_info("%s : read start \n", PCI_TEST_DEVICE_NAME);
-    if (len > TEST_PCI_BUFF_SIZE || len < 0)
-    {
-        pr_err("%s : data length so long \n", PCI_TEST_DEVICE_NAME);
-        return 0;
-    }
-
-    for (ssize_t i = 0; i < len; i++)
-    {
-        data[i] = ioread8(mmio_addr + i);
-    }
-    pr_info("%s : kernel receive data \n", PCI_TEST_DEVICE_NAME);
-    return 0;
-}
-
-ssize_t test_pci_fwrite(struct file *file, const char __user *data, size_t len, loff_t *l)
-{
-    pr_info("%s : write start \n", PCI_TEST_DEVICE_NAME);
-    if (len > TEST_PCI_BUFF_SIZE || len < 0)
-    {
-        pr_err("%s : data length so long \n", PCI_TEST_DEVICE_NAME);
-        return 0;
-    }
-
-    for (ssize_t i = 0; i < len; i++)
-    {
-        iowrite8(data[i], mmio_addr + i);
-    }
-    iowrite8('\0', mmio_addr + len);
-
-    pr_info("%s : device receive data \n", PCI_TEST_DEVICE_NAME);
-    return 0;
-}
-
-static const struct file_operations test_pci_fops = {
-    .owner = THIS_MODULE,
-    .open = test_pci_fopen,
-    .release = test_pci_frelease,
-    .read = test_pci_fread,
-    .write = test_pci_fwrite,
-};
 
 static const struct pci_device_id test_pci_id_table[] = {
     {PCI_DEVICE(PCI_VENDOR_ID_QEMU, TEST_PCI_DEVICE_ID)},
@@ -88,26 +45,45 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
     pr_info("%s : pci probe info from pci_dev_id : vendor : %04x , device id : %04x , subsystem vendor : %04x , subsystem id : %04x \n",
             PCI_TEST_DEVICE_NAME, pci_id_dev->vendor, pci_id_dev->device, pci_id_dev->subvendor, pci_id_dev->subdevice);
 
-    int err = 0;
+    int ret = 0;
 
+    ret = pci_assign_resource(pdev, 0);
+    if(ret){
+        pr_err("%s : fail to assign pci resource \n", PCI_TEST_DEVICE_NAME);
+        return ret;
+    }
     // 启用pci设备
-    err = pci_enable_device(pdev);
-    if (err)
+    ret = pci_enable_device(pdev);
+    if (ret)
     {
         dev_err(&pdev->dev, "%s : pci_ebable_device failed\n", PCI_TEST_DEVICE_NAME);
-        return err;
+        return ret;
     }
     pr_info("%s : pci device enable done\n", PCI_TEST_DEVICE_NAME);
 
-    // 申请mmio / pmio资源
-    err = pci_request_regions(pdev, PCI_TEST_DEVICE_NAME); //
-    if (err)
+    // 申请mmio资源
+    ret = pci_request_regions(pdev, PCI_TEST_DEVICE_NAME);
+    if (ret)
     {
         dev_err(&pdev->dev, "%s : pci_request_regions failed \n", PCI_TEST_DEVICE_NAME);
         pci_disable_device(pdev);
-        return err;
+        return ret;
     }
-    mmio_addr = pcim_iomap(pdev, TEST_PCI_BAR_NUM, 0);
+
+    // 设置dma地址长度
+    ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(TEST_PCI_DMA_MASK));
+    if(ret){
+        pr_err("%s : set dma mask err : %d \n", PCI_TEST_DEVICE_NAME, TEST_PCI_DMA_MASK);
+        pci_release_regions(pdev);
+        pci_disable_device(pdev);
+        return ret;
+    }
+    pr_info("%s : pci dma mask set %016llx \n", PCI_TEST_DEVICE_NAME, DMA_BIT_MASK(TEST_PCI_DMA_MASK));
+
+    pci_set_master(pdev);
+
+    // 申请 mmio 地址, 对应于pci设备中的 BAR 0 
+    mmio_addr = pci_iomap(pdev, TEST_PCI_BAR_NUM, 0);
     if (!mmio_addr)
     {
         dev_err(&pdev->dev, "%s : pci_iomap failed \n", PCI_TEST_DEVICE_NAME);
@@ -117,22 +93,55 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
     }
     pr_info("%s , pci device request mmio addr done : %p \n", PCI_TEST_DEVICE_NAME, mmio_addr);
 
+    int num_vectors = 0;
+    num_vectors = pci_alloc_irq_vectors(pdev, 1, 10, PCI_IRQ_ALL_TYPES); // 最少的向量数要大于 1
+    if (num_vectors < 0)
+    {
+        pr_err("%s : msi malloc error \n", PCI_TEST_DEVICE_NAME);
+        pci_release_regions(pdev);
+        pci_disable_device(pdev);
+        return num_vectors;
+    }
+    pr_info("%s : msi vectors : %d \n", PCI_TEST_DEVICE_NAME, num_vectors);
+    // 此时应该将中断disable, 以免在驱动程序初始化的过程中发生中断导致出错
+
+    // struct msi_desc *msi_desc;
+    // msi_desc = irq_get_msi_desc(pdev->irq);
+    // if (!msi_desc)
+    // {
+    //     pr_err("%s : msi desc null \n", PCI_TEST_DEVICE_NAME);
+    //     pci_free_irq_vectors(pdev);
+    //     pci_release_regions(pdev);
+    //     pci_disable_device(pdev);
+    //     return -1;
+    // }
+
+    // 添加中断处理函数
+
+    int irq = pci_irq_vector(pdev, 0);
+    pr_info("%s : pci irq vector num is %d \n", PCI_TEST_DEVICE_NAME, irq);
+    ret = request_irq(irq, test_pci_irq_handler, IRQF_SHARED, "test_pci_irq", pdev);
     // 测试用
     // 实际需要修改为mac80211子系统相关
 
     // io测试：
-    iowrite32(0x00, mmio_addr + 0x20);
+    iowrite32(0x00, mmio_addr + 0x20); // 清空写入数据长度
     u32 val = ('a' << 24) + ('b' << 16) + ('c' << 8) + 'd';
     pr_info("%s : val : %08x \n", PCI_TEST_DEVICE_NAME, val);
-    iowrite32(val, mmio_addr + 0x10);
-    val = ioread32(mmio_addr + 0x20);
+    iowrite32(val, mmio_addr + 0x10); // 写入32bit数据
+    val = ioread32(mmio_addr + 0x20); // 读取写入数据长度 以 char 为单位
     pr_info("%s : val lenth write : %08x \n", PCI_TEST_DEVICE_NAME, val);
-    val = ioread32(mmio_addr + 0x10);
+    val = ioread32(mmio_addr + 0x10); // 读取写入数据 以 32bit = 4 char 为单位
     pr_info("%s : val value write : %08x \n", PCI_TEST_DEVICE_NAME, val);
+    iowrite32(3, mmio_addr + 0x30);
+    val = ioread32(mmio_addr + 0x30);
+    pr_info("%s : interrupt type val : %08x \n", PCI_TEST_DEVICE_NAME, val);
 
     size_t priv_size = 0;
     test_pci_priv = kzalloc(sizeof(*test_pci_priv) + priv_size, GFP_KERNEL);
     test_pci_priv->mmio_addr = mmio_addr;
+    // test_pci_priv->msi_desc = msi_desc;
+    test_pci_priv->irq_vectors_num = num_vectors;
     pci_set_drvdata(pdev, test_pci_priv);
     pr_info("%s : pci device probe done \n", PCI_TEST_DEVICE_NAME);
     return 0;
@@ -146,6 +155,7 @@ static void test_pci_remove(struct pci_dev *pdev)
     {
         iowrite32(0x00, test_pci_priv->mmio_addr + 0x20);
         pci_iounmap(pdev, test_pci_priv->mmio_addr);
+        pci_free_irq_vectors(pdev);
         pci_release_regions(pdev);
         pci_disable_device(pdev);
         kfree(test_pci_priv);
