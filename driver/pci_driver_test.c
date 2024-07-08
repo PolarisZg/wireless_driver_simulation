@@ -48,7 +48,8 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
     int ret = 0;
 
     ret = pci_assign_resource(pdev, 0);
-    if(ret){
+    if (ret)
+    {
         pr_err("%s : fail to assign pci resource \n", PCI_TEST_DEVICE_NAME);
         return ret;
     }
@@ -72,7 +73,8 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
 
     // 设置dma地址长度
     ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(TEST_PCI_DMA_MASK));
-    if(ret){
+    if (ret)
+    {
         pr_err("%s : set dma mask err : %d \n", PCI_TEST_DEVICE_NAME, TEST_PCI_DMA_MASK);
         pci_release_regions(pdev);
         pci_disable_device(pdev);
@@ -82,7 +84,7 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
 
     pci_set_master(pdev);
 
-    // 申请 mmio 地址, 对应于pci设备中的 BAR 0 
+    // 申请 mmio 地址, 对应于pci设备中的 BAR 0
     mmio_addr = pci_iomap(pdev, TEST_PCI_BAR_NUM, 0);
     if (!mmio_addr)
     {
@@ -94,7 +96,19 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
     pr_info("%s , pci device request mmio addr done : %p \n", PCI_TEST_DEVICE_NAME, mmio_addr);
 
     int num_vectors = 0;
-    num_vectors = pci_alloc_irq_vectors(pdev, 1, 10, PCI_IRQ_ALL_TYPES); // 最少的向量数要大于 1
+    num_vectors = pci_alloc_irq_vectors(pdev, 1, 10, PCI_IRQ_MSI); // 最少的向量数要大于 1
+    int test_msi_isenable = 0;
+    if (num_vectors < 0)
+    {
+        test_msi_isenable = 0;
+        pr_info("%s : this kernel dont support msi \n", PCI_TEST_DEVICE_NAME);
+        num_vectors = pci_alloc_irq_vectors(pdev, 1, 10, PCI_IRQ_ALL_TYPES);
+    }
+    else
+    {
+        test_msi_isenable = 1;
+        pr_info("%s : msi enabled \n", PCI_TEST_DEVICE_NAME);
+    }
     if (num_vectors < 0)
     {
         pr_err("%s : msi malloc error \n", PCI_TEST_DEVICE_NAME);
@@ -105,16 +119,19 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
     pr_info("%s : msi vectors : %d \n", PCI_TEST_DEVICE_NAME, num_vectors);
     // 此时应该将中断disable, 以免在驱动程序初始化的过程中发生中断导致出错
 
-    // struct msi_desc *msi_desc;
-    // msi_desc = irq_get_msi_desc(pdev->irq);
-    // if (!msi_desc)
-    // {
-    //     pr_err("%s : msi desc null \n", PCI_TEST_DEVICE_NAME);
-    //     pci_free_irq_vectors(pdev);
-    //     pci_release_regions(pdev);
-    //     pci_disable_device(pdev);
-    //     return -1;
-    // }
+    struct msi_desc *msi_desc;
+    if (test_msi_isenable)
+    {
+        msi_desc = irq_get_msi_desc(pdev->irq);
+        if (!msi_desc)
+        {
+            pr_err("%s : msi desc null \n", PCI_TEST_DEVICE_NAME);
+            pci_free_irq_vectors(pdev);
+            pci_release_regions(pdev);
+            pci_disable_device(pdev);
+            return -1;
+        }
+    }
 
     // 添加中断处理函数
 
@@ -140,7 +157,9 @@ static int test_pci_probe(struct pci_dev *pdev, const struct pci_device_id *pci_
     size_t priv_size = 0;
     test_pci_priv = kzalloc(sizeof(*test_pci_priv) + priv_size, GFP_KERNEL);
     test_pci_priv->mmio_addr = mmio_addr;
-    // test_pci_priv->msi_desc = msi_desc;
+    if(test_msi_isenable){
+        test_pci_priv->msi_desc = msi_desc;
+    }
     test_pci_priv->irq_vectors_num = num_vectors;
     pci_set_drvdata(pdev, test_pci_priv);
     pr_info("%s : pci device probe done \n", PCI_TEST_DEVICE_NAME);
