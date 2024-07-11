@@ -31,7 +31,9 @@
         "io.h": "c",
         "random": "c",
         "strstream": "c",
-        "streambuf": "c"
+        "streambuf": "c",
+        "glib.h": "c",
+        "glib-typeof.h": "c"
     },
     "search.exclude": {
         "**/node_modules": true,
