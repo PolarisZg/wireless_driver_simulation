@@ -9,7 +9,7 @@ sudo ../qemu_simudevice/build/qemu-system-x86_64 \
 -enable-kvm \
 -net tap -net nic \
 -vnc 10.129.19.237:0 \
--device hellodev-pci \
+-device polariswfifi \
 -device edu \
 -nographic
 # -cdrom ./ubuntu-22.04.4-desktop-amd64.iso
