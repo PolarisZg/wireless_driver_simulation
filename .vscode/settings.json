@@ -33,7 +33,9 @@
         "strstream": "c",
         "streambuf": "c",
         "glib.h": "c",
-        "glib-typeof.h": "c"
+        "glib-typeof.h": "c",
+        "skbuff.h": "c",
+        "shared_mutex": "c"
     },
     "search.exclude": {
         "**/node_modules": true,

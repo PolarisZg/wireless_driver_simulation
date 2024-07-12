@@ -5,10 +5,13 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/src/linux-headers-6.5.0-35-generic/include",
-                "/usr/include/**"
+                "/usr/src/linux-hwe-6.5-headers-6.5.0-35/include/",
+                "/usr/include/**",
             ],
-            "defines": [],
-            "compilerPath": "/usr/bin/clang",
+            "defines": [
+                "__KERNEL__"
+            ],
+            "compilerPath": "/usr/bin/gcc-12",
             "cStandard": "c17",
             "cppStandard": "c++14",
             "intelliSenseMode": "linux-gcc-x64"
