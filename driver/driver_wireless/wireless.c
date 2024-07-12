@@ -9,6 +9,12 @@
 #include <linux/types.h>
 #include <linux/msi.h>
 #include <asm-generic/io.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
+#include <linux/dmaengine.h>
+
+#include <linux/skbuff.h>
+#include <linux/mutex.h>
 
 #include "wireless.h"
 
@@ -18,6 +24,13 @@
 #define WIRELESS_SIMU_BUFF_SIZE 0x100
 #define WIRELESS_SIMU_BAR_NUM 0
 #define WIRELESS_SIMU_DMA_MASK 32
+
+#define WIRELESS_REG_TEST 0x00
+#define WIRELESS_REG_EVENT 0x01
+// this device only can read data from memory
+#define WIRELESS_REG_DMA_HOSTADDR 0x02
+#define WIRELESS_REG_DMA_LENGTH 0x03
+
 static void __iomem *mmio_addr = NULL;
 static struct wireless_simu *wireless_simu_priv = NULL;
 
@@ -46,6 +59,22 @@ static int wireless_simu_probe(struct pci_dev *pdev, const struct pci_device_id 
             WIRELESS_SIMU_DEVICE_NAME, pci_id_dev->vendor, pci_id_dev->device, pci_id_dev->subvendor, pci_id_dev->subdevice);
 
     int ret = 0;
+    size_t priv_size = 0;
+    wireless_simu_priv = kzalloc(sizeof(*wireless_simu_priv) + priv_size, GFP_KERNEL);
+
+    /*
+     * 对DMA功能的测试，测试数据在函数前部创造；
+     * 在pci设备初始化完毕后再开的话，万一没开出来便样衰了；
+     * 还要把pci相关的一个个退出
+     * */
+    void *data = NULL;
+    u32 data_length = 1024;
+    data = kmalloc(data_length, GFP_KERNEL);
+    if (data == NULL)
+    {
+        pr_err("%s : tx test data malloc error \n");
+        return -1;
+    }
 
     ret = pci_assign_resource(pdev, 0);
     if (ret)
@@ -143,20 +172,51 @@ static int wireless_simu_probe(struct pci_dev *pdev, const struct pci_device_id 
 
     // io测试：
     u32 val = 0;
-    iowrite32(0x1919810, mmio_addr + 0x00); // 清空写入数据长度
-    val = ioread32(mmio_addr + 0x00);
+    iowrite32(0x1919810, mmio_addr + WIRELESS_REG_TEST); // 清空写入数据长度
+    val = ioread32(mmio_addr + WIRELESS_REG_TEST);
     pr_info("%s : read from 0x00 : %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
-    
-    size_t priv_size = 0;
-    wireless_simu_priv = kzalloc(sizeof(*wireless_simu_priv) + priv_size, GFP_KERNEL);
+
+    /*
+     * tx DMA 测试
+     * 当前仅测试单次DMA写入功能，多次DMA写入需要构造环形缓冲区，防止写入的数据冲突
+     *
+     * 在传输数据前需要将数据线性化(放入一段连续的物理内存中), skb中有自己的线性化api
+     * */
+    // skb_linearize(skb);
+    struct mutex *dma_tx_mutex = &wireless_simu_priv->tx_ring.tx_ring_mutex;
+    mutex_init(dma_tx_mutex);
+    mutex_lock(dma_tx_mutex);
+    dma_addr_t dma_addr = dma_map_single(&pdev->dev, data, data_length, DMA_MEM_TO_DEV);
+    if (dma_mapping_error(&pdev->dev, dma_addr))
+    {
+        pr_err("%s : dma_addr err \n", WIRELESS_SIMU_DEVICE_NAME);
+        kfree(data);
+        mutex_unlock(dma_tx_mutex);
+        goto testEnd;
+    }
+    // 寻找驱动的 tx 缓存 list 空位
+    // io写地址 dma_addr
+    // io写长度 data_length
+    // 写 驱动的 tx 缓存list
+    mutex_unlock(dma_tx_mutex);
+
+testEnd:
     wireless_simu_priv->mmio_addr = mmio_addr;
-    if(test_msi_isenable){
+    if (test_msi_isenable)
+    {
         wireless_simu_priv->msi_desc = msi_desc;
     }
     wireless_simu_priv->irq_vectors_num = num_vectors;
     pci_set_drvdata(pdev, wireless_simu_priv);
     pr_info("%s : pci device probe done \n", WIRELESS_SIMU_DEVICE_NAME);
     return 0;
+
+test_err:
+    pci_free_irq_vectors(pdev);
+    pci_release_regions(pdev);
+    pci_disable_device(pdev);
+    kfree(wireless_simu_priv);
+    return -1;
 }
 
 static void wireless_simu_remove(struct pci_dev *pdev)
