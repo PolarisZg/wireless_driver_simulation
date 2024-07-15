@@ -9,7 +9,8 @@
                 "/usr/include/**",
             ],
             "defines": [
-                "__KERNEL__"
+                "__KERNEL__",
+                "CONFIG_ARCH_DMA_ADDR_T_64BIT"
             ],
             "compilerPath": "/usr/bin/gcc-12",
             "cStandard": "c17",
