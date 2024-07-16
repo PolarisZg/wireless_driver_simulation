@@ -25,13 +25,21 @@
 #define WIRELESS_SIMU_BAR_NUM 0
 #define WIRELESS_SIMU_DMA_MASK 32
 #define WIRELESS_TX_RING_SIZE 10
+#define WIRELESS_RX_RING_SIZE 2
+#define WIRELESS_RX_BUFF_MAX_SIZE 2048
 
 #define WIRELESS_REG_TEST 0x00
 #define WIRELESS_REG_EVENT 0x10
-#define WIRELESS_REG_DMA_HOSTADDR 0x20
-#define WIRELESS_REG_DMA_LENGTH 0x30
-#define WIRELESS_REG_HOST_BUFF_ID 0x40
 #define WIRELESS_REG_IRQ_STATUS 0x50
+
+#define WIRELESS_REG_DMA_IN_HOSTADDR 0x20
+#define WIRELESS_REG_DMA_IN_LENGTH 0x30
+#define WIRELESS_REG_DMA_IN_BUFF_ID 0x40
+#define WIRELESS_REG_DMA_IN_FLAG 0xA0
+#define WIRELESS_REG_DMA_OUT_HOSTADDR 0x60
+#define WIRELESS_REG_DMA_OUT_LENGTH 0x70
+#define WIRELESS_REG_DMA_OUT_BUFF_ID 0x80
+#define WIRELESS_REG_DMA_OUT_FLAG 0x90
 
 #define SETBIT(x, y) (x |= 1 << y)
 #define CLBIT(x, y) (x &= ~(1 << y))
@@ -49,11 +57,13 @@ static irqreturn_t wireless_simu_irq_handler(int irq, void *dev)
     {
     case WIRELESS_IRQ_TEST:
         pr_info("%s : irq test\n", WIRELESS_SIMU_DEVICE_NAME);
+        iowrite32(0, priv->mmio_addr + WIRELESS_REG_EVENT);
         break;
     case WIRELESS_IRQ_DNA_MEM_TO_DEVICE_END:
-        u32 dma_tx_ring_id = ioread32(priv->mmio_addr + WIRELESS_REG_HOST_BUFF_ID);
-        pr_info("%s : mem to device dma end ; ring id %08x \n", WIRELESS_SIMU_DEVICE_NAME, dma_tx_ring_id);
-        CLBIT(priv->tx_ring.tx_list[dma_tx_ring_id].flag, 0);
+        u32 dma_tx_ring_id = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_OUT_BUFF_ID);
+        u32 dma_tx_flag = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_OUT_FLAG);
+        pr_info("%s : mem to device dma end ; ring id %08x , flag %08x\n", WIRELESS_SIMU_DEVICE_NAME, dma_tx_ring_id, dma_tx_flag);
+        priv->tx_ring.tx_list[dma_tx_ring_id].flag = dma_tx_flag;
         dma_unmap_single(&pdev->dev, priv->tx_ring.tx_list[dma_tx_ring_id].dma_addr, priv->tx_ring.tx_list[dma_tx_ring_id].data_length, DMA_MEM_TO_DEV);
         iowrite32(0, priv->mmio_addr + WIRELESS_REG_EVENT);
         break;
@@ -69,6 +79,52 @@ static const struct pci_device_id wireless_simu_id_table[] = {
     {0},
 };
 MODULE_DEVICE_TABLE(pci, wireless_simu_id_table);
+
+static int wireless_simu_rx_ring_init(struct wireless_simu *wireless_simu_priv)
+{
+    struct Wireless_Rx_Ring *rx_ring = &wireless_simu_priv->rx_ring;
+    int ret;
+    rx_ring->rx_list_size = WIRELESS_RX_RING_SIZE;
+    if (rx_ring->rx_list == NULL)
+    {
+        rx_ring->rx_list = (struct Wireless_DMA_Buf *)kmalloc(rx_ring->rx_list_size * sizeof(struct Wireless_DMA_Buf), GFP_KERNEL);
+        if(rx_ring->rx_list == NULL){
+            ret = -1;
+            return ret;
+        }
+    }
+    for(int i = 0; i < rx_ring->rx_list_size; i++){
+        struct Wireless_DMA_Buf *dma_buf = &rx_ring->rx_list[i];
+        dma_buf->flag = 0;
+        dma_buf->data_length = 0;
+        dma_addr_t dma_addr = 0;
+        // 必须使用dma_alloc_coherent分配空间以突破cache的限制
+        dma_buf->data = dma_alloc_coherent(&wireless_simu_priv->pci_dev->dev, WIRELESS_RX_BUFF_MAX_SIZE, &dma_addr, GFP_KERNEL);
+        if(dma_buf->data == NULL){
+            ret = -2;
+            return ret;
+        }
+        pr_info("%s : rx ring init dma addr %llx \n", WIRELESS_SIMU_DEVICE_NAME, dma_addr);
+        dma_buf->dma_addr = dma_addr;
+    }
+    pr_info("%s : rx ring init success \n", WIRELESS_SIMU_DEVICE_NAME);
+    return 0;
+}
+
+/*
+ * */
+static int wireless_simu_rx_ring_dma_init(struct wireless_simu *wireless_simu_priv)
+{
+    struct Wireless_Rx_Ring *rx_ring = &wireless_simu_priv->rx_ring;
+    int ret;
+    if(rx_ring->rx_list == NULL){
+        ret = wireless_simu_rx_ring_init(wireless_simu_priv);
+        if(ret){
+            return ret;
+        }
+    }
+    
+}
 
 static int wireless_simu_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id_dev)
 {
@@ -120,7 +176,7 @@ static int wireless_simu_probe(struct pci_dev *pdev, const struct pci_device_id 
     }
 
     // 设置dma地址长度
-    ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(WIRELESS_SIMU_DMA_MASK));
+    ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(WIRELESS_SIMU_DMA_MASK));
     if (ret)
     {
         pr_err("%s : set dma mask err : %d \n", WIRELESS_SIMU_DEVICE_NAME, WIRELESS_SIMU_DMA_MASK);
@@ -252,19 +308,22 @@ static int wireless_simu_probe(struct pci_dev *pdev, const struct pci_device_id 
     pr_info("%s : read from 0x00 : %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
 
     // io写host_buffer_id 用于返回时确定应该释放哪一个dma buffer
-    iowrite32(tx_ring_id, mmio_addr + WIRELESS_REG_HOST_BUFF_ID);
-    val = ioread32(mmio_addr + WIRELESS_REG_HOST_BUFF_ID);
+    iowrite32(tx_ring_id, mmio_addr + WIRELESS_REG_DMA_IN_BUFF_ID);
+    val = ioread32(mmio_addr + WIRELESS_REG_DMA_IN_BUFF_ID);
     pr_info("%s : read from host host ring id reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
 
     // io写地址 dma_addr
-    iowrite32(dma_addr_low32, mmio_addr + WIRELESS_REG_DMA_HOSTADDR);
-    val = ioread32(mmio_addr + WIRELESS_REG_DMA_HOSTADDR);
+    iowrite32(dma_addr_low32, mmio_addr + WIRELESS_REG_DMA_IN_HOSTADDR);
+    val = ioread32(mmio_addr + WIRELESS_REG_DMA_IN_HOSTADDR);
     pr_info("%s : read from host addr reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
 
     // io写长度 data_length
-    iowrite32(data_length, mmio_addr + WIRELESS_REG_DMA_LENGTH);
-    val = ioread32(mmio_addr + WIRELESS_REG_DMA_LENGTH);
+    iowrite32(data_length, mmio_addr + WIRELESS_REG_DMA_IN_LENGTH);
+    val = ioread32(mmio_addr + WIRELESS_REG_DMA_IN_LENGTH);
     pr_info("%s : read from host data length reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
+
+    // io写flag
+    iowrite32(0x01, mmio_addr + WIRELESS_REG_DMA_IN_FLAG);
 
     // 启动DMA
     iowrite32(WIRELESS_EVENT_DMA, mmio_addr + WIRELESS_REG_EVENT);

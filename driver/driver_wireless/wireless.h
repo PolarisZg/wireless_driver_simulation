@@ -54,6 +54,20 @@ struct Wireless_Tx_Ring
     u32 tx_list_tail;
 };
 
+/*
+ * rx DMA 接收队列
+ * 
+ * 该队列需要在启动时直接申请一块较大的内存用于等待设备端填充数据，并把对应的内存地址传送给设备
+ * */
+struct Wireless_Rx_Ring
+{
+    struct Wireless_DMA_Buf *rx_list;
+    struct mutex rx_ring_mutex;
+    u32 rx_list_size;
+    u32 rx_list_head;
+    u32 rx_list_tail;
+};
+
 struct wireless_simu
 {
     struct pci_dev *pci_dev;
@@ -65,6 +79,7 @@ struct wireless_simu
     int irq_vectors_num;
 
     struct Wireless_Tx_Ring tx_ring;
+    struct Wireless_Rx_Ring rx_ring;
 };
 
 #endif
