@@ -10,7 +10,8 @@
             ],
             "defines": [
                 "__KERNEL__",
-                "CONFIG_ARCH_DMA_ADDR_T_64BIT"
+                "CONFIG_ARCH_DMA_ADDR_T_64BIT",
+                "CONFIG_HAS_DMA"
             ],
             "compilerPath": "/usr/bin/gcc-12",
             "cStandard": "c17",
