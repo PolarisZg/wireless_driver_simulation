@@ -1,12 +1,50 @@
 #ifndef WIRELESS_SIMU
 #define WIRELESS_SIMU
 
+#define WIRELESS_SIMU_DEVICE_NAME "wirelesssimu"
+#define PCI_VENDOR_ID_QEMU 0x1234
+#define PCI_DEVICE_ID_WIRELESS_SIMU 0x1145
+#define WIRELESS_SIMU_BUFF_SIZE 0x100
+#define WIRELESS_SIMU_BAR_NUM 0
+#define WIRELESS_SIMU_DMA_MASK 32
+#define WIRELESS_TX_RING_SIZE 10
+#define WIRELESS_RX_RING_SIZE 2
+#define WIRELESS_RX_BUFF_MAX_SIZE 2048
+
+#define WIRELESS_REG_TEST 0x00
+#define WIRELESS_REG_EVENT 0x10
+#define WIRELESS_REG_IRQ_STATUS 0x50
+
+#define WIRELESS_REG_DMA_IN_HOSTADDR 0x20
+#define WIRELESS_REG_DMA_IN_LENGTH 0x30
+#define WIRELESS_REG_DMA_IN_BUFF_ID 0x40
+#define WIRELESS_REG_DMA_IN_FLAG 0xA0
+#define WIRELESS_REG_DMA_OUT_HOSTADDR 0x60
+#define WIRELESS_REG_DMA_OUT_LENGTH 0x70
+#define WIRELESS_REG_DMA_OUT_BUFF_ID 0x80
+#define WIRELESS_REG_DMA_OUT_FLAG 0x90
+#define WIRELESS_REG_DMA_RX_RING_BUF_ID 0xB0
+#define WIRELESS_REG_DMA_RX_RING_HOSTADDR 0xC0
+#define WIRELESS_REG_DMA_RX_RING_LENGTH 0xD0
+#define WIRELESS_REG_DMA_RX_RING_FLAG 0xE0
+
+#define SETBIT(x, y) (x |= 1 << y)
+#define CLBIT(x, y) (x &= ~(1 << y))
+
+#define WIRELESS_BITCHECK(num, n) ((num >> n) & 1)
+#define WIRELESS_BITSET(num, n) (num |= (1 << n))
+#define WIRELESS_BITCLR(num, n) (num &= ~(1 << n))
+
+#define WIRELESS_RX_RING_BUF_IS_USING 0
+#define WIRELESS_RX_RING_BUF_INIT_END 1
+
 enum Wireless_DMA_IRQ_STATUS
 {
     WIRELESS_IRQ_TEST = 0,
     WIRELESS_IRQ_DNA_MEM_TO_DEVICE_END,
     WIRELESS_IRQ_DMA_DELALL_END,
     WIRELESS_IRQ_RX_START,
+    WIRELESS_IRQ_DMA_DEVICE_TO_MEM_END,
 };
 
 enum Wireless_LongTimeEvent
@@ -77,6 +115,8 @@ struct wireless_simu
     struct class *dev_class;
     struct msi_desc *msi_desc;
     int irq_vectors_num;
+
+    struct mutex iomutex;
 
     struct Wireless_Tx_Ring tx_ring;
     struct Wireless_Rx_Ring rx_ring;
