@@ -27,6 +27,7 @@
 #define WIRELESS_REG_DMA_RX_RING_HOSTADDR 0xC0
 #define WIRELESS_REG_DMA_RX_RING_LENGTH 0xD0
 #define WIRELESS_REG_DMA_RX_RING_FLAG 0xE0
+#define WIRELESS_REG_IRQ_ENABLE 0xF0
 
 #define SETBIT(x, y) (x |= 1 << y)
 #define CLBIT(x, y) (x &= ~(1 << y))
@@ -99,7 +100,7 @@ struct Wireless_Tx_Ring
  * */
 struct Wireless_Rx_Ring
 {
-    struct Wireless_DMA_Buf *rx_list;
+    struct Wireless_DMA_Buf rx_list[WIRELESS_RX_RING_SIZE];
     struct mutex rx_ring_mutex;
     u32 rx_list_size;
     u32 rx_list_head;
