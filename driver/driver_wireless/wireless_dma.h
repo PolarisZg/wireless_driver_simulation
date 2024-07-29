@@ -34,4 +34,25 @@ wireless_simu_tx_ring_init(struct wireless_simu *priv);
 enum wireless_simu_err_code 
 wireless_simu_dma_tx(struct wireless_simu *priv, void* data, size_t length);
 
+/* 
+ * dma tx ring 退出
+ */
+void 
+wireless_tx_ring_exit(struct wireless_simu *priv);
+
+/* 
+ * dma 自设备接收数据队列初始化；
+ * 必须进行初始化，以让设备得到可写入的内存地址
+ * */
+enum wireless_simu_err_code 
+wireless_simu_rx_ring_init(struct wireless_simu *priv);
+
+/* 
+ * dma rx 退出
+ */
+void 
+wireless_rx_ring_exit(struct wireless_simu *priv);
+
+void wireless_simu_dma_test(struct wireless_simu *priv);
+
 #endif /*WIRELESS_SIMU_DMA*/

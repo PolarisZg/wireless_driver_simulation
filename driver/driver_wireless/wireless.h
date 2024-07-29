@@ -98,7 +98,8 @@ struct Wireless_Tx_Ring
 /*
  * rx DMA 接收队列
  * 
- * 该队列需要在启动时直接申请一块较大的内存用于等待设备端填充数据，并把对应的内存地址传送给设备
+ * 该队列需要在启动时直接申请一块较大的内存用于等待设备端填充数据，并把对应的内存地址传送给设备;
+ * 接收队列长度固定，在退出时无需free;
  * */
 struct Wireless_Rx_Ring
 {
@@ -117,12 +118,15 @@ struct wireless_simu
     struct cdev *char_dev;
     struct class *dev_class;
     struct msi_desc *msi_desc;
+    bool msi_enable;
     int irq_vectors_num;
 
     struct mutex iomutex;
 
     struct Wireless_Tx_Ring tx_ring;
     struct Wireless_Rx_Ring rx_ring;
+
+    bool stop;
 };
 
 #endif
