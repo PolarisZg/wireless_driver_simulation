@@ -17,6 +17,7 @@
 #include <linux/mutex.h>
 
 #include "wireless.h"
+#include "wireless_dma.h"
 
 static void wireless_tx_end(struct wireless_simu *priv)
 {
@@ -331,85 +332,91 @@ static int wireless_simu_probe(struct pci_dev *pdev, const struct pci_device_id 
     // skb_linearize(skb);
 
     // 初始化 tx_ring 结构
-    struct Wireless_Tx_Ring *tx_ring = &priv->tx_ring;
-    struct mutex *dma_tx_mutex = &tx_ring->tx_ring_mutex;
-    tx_ring->tx_list_size = WIRELESS_TX_RING_SIZE;
-    if (tx_ring->tx_list == NULL)
-    {
-        tx_ring->tx_list = (struct Wireless_DMA_Buf *)kzalloc(tx_ring->tx_list_size * sizeof(struct Wireless_DMA_Buf), GFP_KERNEL);
-        if (tx_ring->tx_list == NULL)
-        {
-            pr_err("%s : tx ring malloc null \n", WIRELESS_SIMU_DEVICE_NAME);
-            goto testEnd;
-        }
+    // struct Wireless_Tx_Ring *tx_ring = &priv->tx_ring;
+    // struct mutex *dma_tx_mutex = &tx_ring->tx_ring_mutex;
+    // tx_ring->tx_list_size = WIRELESS_TX_RING_SIZE;
+    // if (tx_ring->tx_list == NULL)
+    // {
+    //     tx_ring->tx_list = (struct Wireless_DMA_Buf *)kzalloc(tx_ring->tx_list_size * sizeof(struct Wireless_DMA_Buf), GFP_KERNEL);
+    //     if (tx_ring->tx_list == NULL)
+    //     {
+    //         pr_err("%s : tx ring malloc null \n", WIRELESS_SIMU_DEVICE_NAME);
+    //         goto testEnd;
+    //     }
+    // }
+    // mutex_init(dma_tx_mutex);
+    ret = wireless_simu_tx_ring_init(priv);
+    if(ret){
+        pr_info("%s : tx ring init err %08x \n", WIRELESS_SIMU_DEVICE_NAME, ret);
+        goto testEnd;
     }
-    mutex_init(dma_tx_mutex);
     pr_info("%s : tx ring list init success \n", WIRELESS_SIMU_DEVICE_NAME);
 
-    struct Wireless_DMA_Buf *tx_list = tx_ring->tx_list;
-    mutex_lock(dma_tx_mutex);
-    dma_addr_t dma_addr = dma_map_single(&priv->pci_dev->dev, data, data_length, DMA_MEM_TO_DEV);
-    if (dma_mapping_error(&priv->pci_dev->dev, dma_addr))
-    {
-        pr_err("%s : dma_addr err \n", WIRELESS_SIMU_DEVICE_NAME);
-        kfree(data);
-        mutex_unlock(dma_tx_mutex);
-        goto testEnd;
-    }
-    pr_info("%s : test dma dma_addr %llx \n", WIRELESS_SIMU_DEVICE_NAME, dma_addr);
-    u32 dma_addr_low32 = dma_addr;
-    pr_info("%s : test dma dma_addr  low 32 %08x \n", WIRELESS_SIMU_DEVICE_NAME, dma_addr_low32);
-    // 寻找驱动的 tx 缓存 list 空位
-    u32 tx_ring_id = 0;
-    for (tx_ring_id = 0; tx_ring_id < tx_ring->tx_list_size; tx_ring_id++)
-    {
-        if ((tx_list[tx_ring_id].flag & 0x01) == 0) // 使用flag的最后一位检查该缓存是否被占用
-        {
-            break;
-        }
-    }
-    if (tx_ring_id == tx_ring->tx_list_size)
-    {
-        pr_err("%s : no tx ring empty for data \n", WIRELESS_SIMU_DEVICE_NAME);
-        dma_unmap_single(&priv->pci_dev->dev, dma_addr, data_length, DMA_MEM_TO_DEV);
-        mutex_unlock(dma_tx_mutex);
-        kfree(data);
-        goto testEnd;
-    }
-    pr_info("%s : dma test find ring id %08x \n", WIRELESS_SIMU_DEVICE_NAME, tx_ring_id);
+    // struct Wireless_DMA_Buf *tx_list = tx_ring->tx_list;
+    // mutex_lock(dma_tx_mutex);
+    // dma_addr_t dma_addr = dma_map_single(&priv->pci_dev->dev, data, data_length, DMA_MEM_TO_DEV);
+    // if (dma_mapping_error(&priv->pci_dev->dev, dma_addr))
+    // {
+    //     pr_err("%s : dma_addr err \n", WIRELESS_SIMU_DEVICE_NAME);
+    //     kfree(data);
+    //     mutex_unlock(dma_tx_mutex);
+    //     goto testEnd;
+    // }
+    // pr_info("%s : test dma dma_addr %llx \n", WIRELESS_SIMU_DEVICE_NAME, dma_addr);
+    // u32 dma_addr_low32 = dma_addr;
+    // pr_info("%s : test dma dma_addr  low 32 %08x \n", WIRELESS_SIMU_DEVICE_NAME, dma_addr_low32);
+    // // 寻找驱动的 tx 缓存 list 空位
+    // u32 tx_ring_id = 0;
+    // for (tx_ring_id = 0; tx_ring_id < tx_ring->tx_list_size; tx_ring_id++)
+    // {
+    //     if ((tx_list[tx_ring_id].flag & 0x01) == 0) // 使用flag的最后一位检查该缓存是否被占用
+    //     {
+    //         break;
+    //     }
+    // }
+    // if (tx_ring_id == tx_ring->tx_list_size)
+    // {
+    //     pr_err("%s : no tx ring empty for data \n", WIRELESS_SIMU_DEVICE_NAME);
+    //     dma_unmap_single(&priv->pci_dev->dev, dma_addr, data_length, DMA_MEM_TO_DEV);
+    //     mutex_unlock(dma_tx_mutex);
+    //     kfree(data);
+    //     goto testEnd;
+    // }
+    // pr_info("%s : dma test find ring id %08x \n", WIRELESS_SIMU_DEVICE_NAME, tx_ring_id);
 
-    // io测试：
-    iowrite32(0x1919810, priv->mmio_addr + WIRELESS_REG_TEST);
-    val = ioread32(priv->mmio_addr + WIRELESS_REG_TEST);
-    pr_info("%s : read from 0x00 : %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
+    // // io测试：
+    // iowrite32(0x1919810, priv->mmio_addr + WIRELESS_REG_TEST);
+    // val = ioread32(priv->mmio_addr + WIRELESS_REG_TEST);
+    // pr_info("%s : read from 0x00 : %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
 
-    // io写host_buffer_id 用于返回时确定应该释放哪一个dma buffer
-    iowrite32(tx_ring_id, priv->mmio_addr + WIRELESS_REG_DMA_IN_BUFF_ID);
-    val = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_IN_BUFF_ID);
-    pr_info("%s : read from host host ring id reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
+    // // io写host_buffer_id 用于返回时确定应该释放哪一个dma buffer
+    // iowrite32(tx_ring_id, priv->mmio_addr + WIRELESS_REG_DMA_IN_BUFF_ID);
+    // val = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_IN_BUFF_ID);
+    // pr_info("%s : read from host host ring id reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
 
-    // io写地址 dma_addr
-    iowrite32(dma_addr_low32, priv->mmio_addr + WIRELESS_REG_DMA_IN_HOSTADDR);
-    val = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_IN_HOSTADDR);
-    pr_info("%s : read from host addr reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
+    // // io写地址 dma_addr
+    // iowrite32(dma_addr_low32, priv->mmio_addr + WIRELESS_REG_DMA_IN_HOSTADDR);
+    // val = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_IN_HOSTADDR);
+    // pr_info("%s : read from host addr reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
 
-    // io写长度 data_length
-    iowrite32(data_length, priv->mmio_addr + WIRELESS_REG_DMA_IN_LENGTH);
-    val = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_IN_LENGTH);
-    pr_info("%s : read from host data length reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
+    // // io写长度 data_length
+    // iowrite32(data_length, priv->mmio_addr + WIRELESS_REG_DMA_IN_LENGTH);
+    // val = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_IN_LENGTH);
+    // pr_info("%s : read from host data length reg %08x \n", WIRELESS_SIMU_DEVICE_NAME, val);
 
-    // io写flag
-    iowrite32(0x01, priv->mmio_addr + WIRELESS_REG_DMA_IN_FLAG);
+    // // io写flag
+    // iowrite32(0x01, priv->mmio_addr + WIRELESS_REG_DMA_IN_FLAG);
 
-    // 启动DMA
-    iowrite32(WIRELESS_EVENT_DMA, priv->mmio_addr + WIRELESS_REG_EVENT);
+    // // 启动DMA
+    // iowrite32(WIRELESS_EVENT_DMA, priv->mmio_addr + WIRELESS_REG_EVENT);
 
-    // 写 驱动的 tx 缓存list
-    tx_list[tx_ring_id].data = data;
-    tx_list[tx_ring_id].dma_addr = (u32)dma_addr;
-    tx_list[tx_ring_id].data_length = data_length;
-    tx_list[tx_ring_id].flag |= 0x01;
-    mutex_unlock(dma_tx_mutex);
+    // // 写 驱动的 tx 缓存list
+    // tx_list[tx_ring_id].data = data;
+    // tx_list[tx_ring_id].dma_addr = (u32)dma_addr;
+    // tx_list[tx_ring_id].data_length = data_length;
+    // tx_list[tx_ring_id].flag |= 0x01;
+    // mutex_unlock(dma_tx_mutex);
+    wireless_simu_dma_tx(priv, data, data_length);
 
 testEnd:
     return 0;
