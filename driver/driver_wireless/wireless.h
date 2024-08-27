@@ -1,6 +1,27 @@
 #ifndef WIRELESS_SIMU
 #define WIRELESS_SIMU
 
+#include <linux/pci.h>
+#include <linux/mod_devicetable.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/mod_devicetable.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/types.h>
+#include <linux/msi.h>
+#include <asm-generic/io.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
+#include <linux/dmaengine.h>
+
+#include <linux/skbuff.h>
+#include <linux/mutex.h>
+#include "wireless_mac80211.h"
+#include "wireless_err.h"
+#include "wireless_dma.h"
+
 #define WIRELESS_SIMU_DEVICE_NAME "wirelesssimu"
 #define PCI_VENDOR_ID_QEMU 0x1234
 #define PCI_DEVICE_ID_WIRELESS_SIMU 0x1145
