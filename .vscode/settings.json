@@ -35,7 +35,8 @@
         "glib.h": "c",
         "glib-typeof.h": "c",
         "skbuff.h": "c",
-        "shared_mutex": "c"
+        "shared_mutex": "c",
+        "wireless_dma.h": "c"
     },
     "search.exclude": {
         "**/node_modules": true,
