@@ -147,7 +147,208 @@ struct wireless_simu
     struct Wireless_Tx_Ring tx_ring;
     struct Wireless_Rx_Ring rx_ring;
 
+    struct ieee80211_hw *hw;
+    struct ieee80211_supported_band band_2GHZ;
+    struct ieee80211_supported_band band_5GHZ;
+    struct ieee80211_supported_band band_6GHZ;
+    u8 mac_addr[ETH_ALEN];
+
     bool stop;
 };
+
+#define CHAN2G(_channel, _freq, _flags) { \
+	.band                   = NL80211_BAND_2GHZ, \
+	.hw_value               = (_channel), \
+	.center_freq            = (_freq), \
+	.flags                  = (_flags), \
+	.max_antenna_gain       = 0, \
+	.max_power              = 30, \
+}
+
+#define CHAN5G(_channel, _freq, _flags) { \
+	.band                   = NL80211_BAND_5GHZ, \
+	.hw_value               = (_channel), \
+	.center_freq            = (_freq), \
+	.flags                  = (_flags), \
+	.max_antenna_gain       = 0, \
+	.max_power              = 30, \
+}
+
+#define CHAN6G(_channel, _freq, _flags) { \
+	.band                   = NL80211_BAND_6GHZ, \
+	.hw_value               = (_channel), \
+	.center_freq            = (_freq), \
+	.flags                  = (_flags), \
+	.max_antenna_gain       = 0, \
+	.max_power              = 30, \
+}
+
+static const struct ieee80211_channel wireless_simu_2ghz_channels[] = {
+    CHAN2G(1, 2412, 0),
+	CHAN2G(2, 2417, 0),
+	CHAN2G(3, 2422, 0),
+	CHAN2G(4, 2427, 0),
+	CHAN2G(5, 2432, 0),
+	CHAN2G(6, 2437, 0),
+	CHAN2G(7, 2442, 0),
+	CHAN2G(8, 2447, 0),
+	CHAN2G(9, 2452, 0),
+	CHAN2G(10, 2457, 0),
+	CHAN2G(11, 2462, 0),
+	CHAN2G(12, 2467, 0),
+	CHAN2G(13, 2472, 0),
+	CHAN2G(14, 2484, 0),
+};
+
+static const struct ieee80211_channel wireless_simu_5ghz_channels[] = {
+    CHAN5G(36, 5180, 0),
+	CHAN5G(40, 5200, 0),
+	CHAN5G(44, 5220, 0),
+	CHAN5G(48, 5240, 0),
+	CHAN5G(52, 5260, 0),
+	CHAN5G(56, 5280, 0),
+	CHAN5G(60, 5300, 0),
+	CHAN5G(64, 5320, 0),
+	CHAN5G(100, 5500, 0),
+	CHAN5G(104, 5520, 0),
+	CHAN5G(108, 5540, 0),
+	CHAN5G(112, 5560, 0),
+	CHAN5G(116, 5580, 0),
+	CHAN5G(120, 5600, 0),
+	CHAN5G(124, 5620, 0),
+	CHAN5G(128, 5640, 0),
+	CHAN5G(132, 5660, 0),
+	CHAN5G(136, 5680, 0),
+	CHAN5G(140, 5700, 0),
+	CHAN5G(144, 5720, 0),
+	CHAN5G(149, 5745, 0),
+	CHAN5G(153, 5765, 0),
+	CHAN5G(157, 5785, 0),
+	CHAN5G(161, 5805, 0),
+	CHAN5G(165, 5825, 0),
+	CHAN5G(169, 5845, 0),
+	CHAN5G(173, 5865, 0),
+	CHAN5G(177, 5885, 0),
+};
+
+static const struct ieee80211_channel wireless_simu_6ghz_channels[] = {
+    CHAN6G(1, 5955, 0),
+	CHAN6G(5, 5975, 0),
+	CHAN6G(9, 5995, 0),
+	CHAN6G(13, 6015, 0),
+	CHAN6G(17, 6035, 0),
+	CHAN6G(21, 6055, 0),
+	CHAN6G(25, 6075, 0),
+	CHAN6G(29, 6095, 0),
+	CHAN6G(33, 6115, 0),
+	CHAN6G(37, 6135, 0),
+	CHAN6G(41, 6155, 0),
+	CHAN6G(45, 6175, 0),
+	CHAN6G(49, 6195, 0),
+	CHAN6G(53, 6215, 0),
+	CHAN6G(57, 6235, 0),
+	CHAN6G(61, 6255, 0),
+	CHAN6G(65, 6275, 0),
+	CHAN6G(69, 6295, 0),
+	CHAN6G(73, 6315, 0),
+	CHAN6G(77, 6335, 0),
+	CHAN6G(81, 6355, 0),
+	CHAN6G(85, 6375, 0),
+	CHAN6G(89, 6395, 0),
+	CHAN6G(93, 6415, 0),
+	CHAN6G(97, 6435, 0),
+	CHAN6G(101, 6455, 0),
+	CHAN6G(105, 6475, 0),
+	CHAN6G(109, 6495, 0),
+	CHAN6G(113, 6515, 0),
+	CHAN6G(117, 6535, 0),
+	CHAN6G(121, 6555, 0),
+	CHAN6G(125, 6575, 0),
+	CHAN6G(129, 6595, 0),
+	CHAN6G(133, 6615, 0),
+	CHAN6G(137, 6635, 0),
+	CHAN6G(141, 6655, 0),
+	CHAN6G(145, 6675, 0),
+	CHAN6G(149, 6695, 0),
+	CHAN6G(153, 6715, 0),
+	CHAN6G(157, 6735, 0),
+	CHAN6G(161, 6755, 0),
+	CHAN6G(165, 6775, 0),
+	CHAN6G(169, 6795, 0),
+	CHAN6G(173, 6815, 0),
+	CHAN6G(177, 6835, 0),
+	CHAN6G(181, 6855, 0),
+	CHAN6G(185, 6875, 0),
+	CHAN6G(189, 6895, 0),
+	CHAN6G(193, 6915, 0),
+	CHAN6G(197, 6935, 0),
+	CHAN6G(201, 6955, 0),
+	CHAN6G(205, 6975, 0),
+	CHAN6G(209, 6995, 0),
+	CHAN6G(213, 7015, 0),
+	CHAN6G(217, 7035, 0),
+	CHAN6G(221, 7055, 0),
+	CHAN6G(225, 7075, 0),
+	CHAN6G(229, 7095, 0),
+	CHAN6G(233, 7115, 0),
+
+	/* new addition in IEEE Std 802.11ax-2021 */
+	CHAN6G(2, 5935, 0),
+};
+
+/* rate 参考 wireless_simu 的驱动代码, 不对不同的频率进行区分*/
+
+enum wireless_simu_hw_rate_cck {
+	WIRELESS_SIMU_HW_RATE_CCK_LP_11M = 0,
+	WIRELESS_SIMU_HW_RATE_CCK_LP_5_5M,
+	WIRELESS_SIMU_HW_RATE_CCK_LP_2M,
+	WIRELESS_SIMU_HW_RATE_CCK_LP_1M,
+	WIRELESS_SIMU_HW_RATE_CCK_SP_11M,
+	WIRELESS_SIMU_HW_RATE_CCK_SP_5_5M,
+	WIRELESS_SIMU_HW_RATE_CCK_SP_2M,
+};
+
+enum wireless_simu_hw_rate_ofdm {
+	WIRELESS_SIMU_HW_RATE_OFDM_48M = 0,
+	WIRELESS_SIMU_HW_RATE_OFDM_24M,
+	WIRELESS_SIMU_HW_RATE_OFDM_12M,
+	WIRELESS_SIMU_HW_RATE_OFDM_6M,
+	WIRELESS_SIMU_HW_RATE_OFDM_54M,
+	WIRELESS_SIMU_HW_RATE_OFDM_36M,
+	WIRELESS_SIMU_HW_RATE_OFDM_18M,
+	WIRELESS_SIMU_HW_RATE_OFDM_9M,
+};
+
+static const struct ieee80211_rate wireless_simu_rates[] = {
+    { .bitrate = 10,
+	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_1M },
+	{ .bitrate = 20,
+	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_2M,
+	  .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_2M,
+	  .flags = IEEE80211_RATE_SHORT_PREAMBLE },
+	{ .bitrate = 55,
+	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_5_5M,
+	  .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_5_5M,
+	  .flags = IEEE80211_RATE_SHORT_PREAMBLE },
+	{ .bitrate = 110,
+	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_11M,
+	  .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_11M,
+	  .flags = IEEE80211_RATE_SHORT_PREAMBLE },
+
+	{ .bitrate = 60, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_6M },
+	{ .bitrate = 90, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_9M },
+	{ .bitrate = 120, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_12M },
+	{ .bitrate = 180, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_18M },
+	{ .bitrate = 240, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_24M },
+	{ .bitrate = 360, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_36M },
+	{ .bitrate = 480, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_48M },
+	{ .bitrate = 540, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_54M },
+};
+
+#define WIRELESS_SIMU_MAC_FIRST_OFDM_RATE_IDX 4
+#define wireless_simu_g_rates wireless_simu_legacy_rates
+#define wireless_simu_g_rates_size (ARRAY_SIZE(wireless_simu_legacy_rates))
+#define wireless_simu_a_rates (wireless_simu_legacy_rates + WIRELESS_SIMU_MAC_FIRST_OFDM_RATE_IDX)
+#define wireless_simu_a_rates_size (ARRAY_SIZE(wireless_simu_legacy_rates) - WIRELESS_SIMU_MAC_FIRST_OFDM_RATE_IDX)
 
 #endif

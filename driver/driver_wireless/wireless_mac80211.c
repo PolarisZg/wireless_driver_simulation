@@ -147,7 +147,72 @@ static const struct ieee80211_ops wireless_mac80211_ops = {
 enum wireless_simu_err_code
 wireless_mac80211_core_probe(struct wireless_simu *priv)
 {
+    // 该方法中对mac80211系统中api的调用顺序尽量不要打乱
+
     struct ieee80211_hw *hw = NULL;
+    enum wireless_simu_err_code err = SUCCESS;
 
     hw = ieee80211_alloc_hw(sizeof(*priv), wireless_mac80211_ops);
+    if (!hw)
+    {
+        err = MAC80211_ALLOC_ERR;
+        pr_info("%s : mac probe : alloc hw failed \n", WIRELESS_SIMU_DEVICE_NAME);
+        goto err_free_dev;
+    }
+    hw->priv = priv;
+    priv->hw = hw;
+
+    SET_IEEE80211_DEV(hw, &priv->pci_dev->dev);
+
+    /* set channel rates
+     * ath11k_mac_setup_channels_rates in ath11k driver
+     */
+    priv->band_2GHZ.band = NL80211_BAND_2GHZ;
+    priv->band_2GHZ.channels = wireless_simu_2ghz_channels;
+    priv->band_2GHZ.n_channels = ARRAY_SIZE(wireless_simu_2ghz_channels);
+    priv->band_2GHZ.bitrates = wireless_simu_g_rates;
+    priv->band_2GHZ.n_bitrates = wireless_simu_g_rates_size;
+    priv->hw->wiphy->bands[NL80211_BAND_2GHZ] = &priv->band_2GHZ;
+
+    wiphy_read_of_freq_limits(priv->hw->wiphy);
+    /*
+     * set hw_flags
+     * enum ieee80211_hw_flags
+     */
+    
+
+    /*
+     * mac address
+     * 在高通 ath11k driver 中, 对每一个 radio 都注册了一个ieee80211_hw ,
+     * 并且每个 hw 都拥有自己的 mac 地址.
+     * 至于mac地址的设定, 在到达提交mac地址给netdevice系统之前, 高通使用了多种方式来得到一个mac地址
+     * iwlwifi 的 mac 地址设定乱的一批.
+     * 找人问一下高通芯片的mac地址: 
+     *  1. ax 芯片中使用ifconfig仅能看到一个mac地址
+     */
+    device_get_mac_address(priv->pci_dev->dev, priv->mac_addr);
+    if (!is_valid_ether_addr(priv->mac_addr))
+    {
+        pr_info("%s : mac probe : err mac addr use radom addr \n", WIRELESS_SIMU_DEVICE_NAME);
+        eth_random_addr(priv->mac_addr);
+    }
+    pr_info("%s : mac probe : %02x:%02x:%02x:%02x:%02x:%02x \n", WIRELESS_SIMU_DEVICE_NAME,
+            priv->mac_addr[5], priv->mac_addr[4], priv->mac_addr[3], priv->mac_addr[2], priv->mac_addr[1], priv->mac_addr[0]);
+    SET_IEEE80211_PERM_ADDR(hw, priv->mac_addr);
+
+    err = ieee80211_register_hw(hw);
+    if (err)
+    {
+        pr_info("%S : mac probe : can not register device \n", WIRELESS_SIMU_DEVICE_NAME);
+        err = MAC80211_REGISTER_ERR;
+        goto err_free_dev;
+    }
+    else
+    {
+        pr_info("%s : mac80211 probe : ieee80211_hw regi success %d \n", WIRELESS_SIMU_DEVICE_NAME, err);
+    }
+
+err_free_dev:
+    ieee80211_free_hw(hw);
+    return err;
 }
