@@ -22,6 +22,8 @@
 #include "wireless.h"
 #include "wireless_err.h"
 
+struct wireless_simu; // 前向声明结构体保证该文件可以访问到其他头文件中定义的结构体
+
 enum wireless_simu_err_code 
 wireless_simu_tx_ring_init(struct wireless_simu *priv);
 
