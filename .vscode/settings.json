@@ -140,5 +140,6 @@
         "arch/arm/boot/dts/imx6ull-14x14-ddr*":true, 
         "arch/arm/boot/dts/*.tmp":true, 
     },
-    "C_Cpp.errorSquiggles": "disabled"
+    "C_Cpp.errorSquiggles": "disabled",
+    "C_Cpp.default.compilerPath": "/usr/bin/gcc-12"
 }

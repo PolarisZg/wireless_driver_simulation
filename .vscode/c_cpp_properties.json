@@ -6,15 +6,15 @@
                 "${workspaceFolder}/**",
                 "/usr/src/linux-headers-6.5.0-44-generic/include",
                 "/usr/src/linux-hwe-6.5-headers-6.5.0-44/include/",
-                "/usr/include/**",
+                "/usr/include/**"
             ],
             "defines": [
                 "__KERNEL__",
                 "CONFIG_ARCH_DMA_ADDR_T_64BIT",
                 "CONFIG_HAS_DMA",
-                "CONFIG_NL80211_TESTMODE"
+                "CONFIG_NL80211_TESTMODE",
+                "CONFIG_PCI_MSI"
             ],
-            "compilerPath": "/usr/bin/gcc-12",
             "cStandard": "c17",
             "cppStandard": "c++14",
             "intelliSenseMode": "linux-gcc-x64"
