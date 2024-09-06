@@ -255,6 +255,8 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
     pr_info("%s : pci device probe done \n", WIRELESS_SIMU_DEVICE_NAME);
 
     wireless_simu_dma_test(priv);
+
+    wireless_mac80211_core_probe(priv);
     return 0;
 
 End:
