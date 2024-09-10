@@ -8,6 +8,15 @@ static void wireless_mac80211_tx(struct ieee80211_hw *dev,
 
 static int wireless_mac80211_start(struct ieee80211_hw *hw)
 {
+    pr_info("%s : mac80211 start \n", WIRELESS_SIMU_DEVICE_NAME);
+    struct wireless_simu *priv = hw->priv;
+
+    // 清空vif
+    for(int i = 0; i < ARRAY_SIZE(priv->vif); i++){
+        priv->vif[i] = NULL;
+    }
+
+
     return 0;
 }
 
@@ -36,11 +45,6 @@ static void wireless_mac80211_configure_filter(struct ieee80211_hw *hw,
                                                unsigned int changed_flags,
                                                unsigned int *total_flags,
                                                u64 multicast)
-{
-}
-
-static void wireless_mac80211_wake_tx_queue(struct ieee80211_hw *hw,
-                                            struct ieee80211_txq *txq)
 {
 }
 
@@ -125,7 +129,7 @@ static const struct ieee80211_ops wireless_mac80211_ops = {
     .add_interface = wireless_mac80211_add_interface,
     .remove_interface = wireless_mac80211_remove_interface,
     .configure_filter = wireless_mac80211_configure_filter,
-    .wake_tx_queue = wireless_mac80211_wake_tx_queue, // 这个是最新版linux新添加的强制性接口
+    .wake_tx_queue = ieee80211_handle_wake_tx_queue, // 这个是最新版linux新添加的强制性接口
 
     // 该部分可自行选择满足, 参考ath11k, 保留的参考openwifi
     // .reconfig_complete = ,
@@ -193,6 +197,8 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
 
     SET_IEEE80211_DEV(hw, &priv->pci_dev->dev);
 
+    // priv->hw->max_rates = 1; // 最大速率重试次数，感觉没什么用
+
     /* set channel rates
      * ath11k_mac_setup_channels_rates in ath11k driver
      */
@@ -207,10 +213,15 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
     priv->band_2GHZ.n_channels = ARRAY_SIZE(wireless_simu_2ghz_channels);
     priv->band_2GHZ.bitrates = wireless_simu_g_rates;
     priv->band_2GHZ.n_bitrates = wireless_simu_g_rates_size;
+    priv->band_2GHZ.ht_cap.ht_supported = true;
+    // 对AMPDU的支持也要填写到ht_cap中，缺省则不支持
+    memset(&priv->band_2GHZ.ht_cap.mcs, 0, sizeof(priv->band_2GHZ.ht_cap.mcs));
+    priv->band_2GHZ.ht_cap.mcs.rx_mask[0] = 0xff;
+    priv->band_2GHZ.ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED;
     priv->hw->wiphy->bands[NL80211_BAND_2GHZ] = &priv->band_2GHZ;
 
     wiphy_read_of_freq_limits(priv->hw->wiphy);
-    pr_info("%s : band 2ghz n_channel %d n_bitrates %s \n", WIRELESS_SIMU_DEVICE_NAME,
+    pr_info("%s : band 2ghz n_channel %d n_bitrates %d \n", WIRELESS_SIMU_DEVICE_NAME,
             priv->hw->wiphy->bands[NL80211_BAND_2GHZ]->n_channels,
             priv->hw->wiphy->bands[NL80211_BAND_2GHZ]->n_bitrates);
 
@@ -220,7 +231,39 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
      */
     // rx 的skb中包含fcs字段
     ieee80211_hw_set(priv->hw, RX_INCLUDES_FCS);
-    ieee80211_hw_set(priv->hw, )
+    ieee80211_hw_set(priv->hw, BEACON_TX_STATUS);
+    ieee80211_hw_set(priv->hw, REPORTS_TX_ACK_STATUS);
+    ieee80211_hw_set(priv->hw, AP_LINK_PS); // 让硬件管理PS，但硬件实际并不支持PS管理，所以就相当于禁用掉
+    ieee80211_hw_set(priv->hw, SIGNAL_DBM);
+
+    // ieee80211_hw_set(priv->hw, AMPDU_AGGREGATION); // 禁用AMPDU
+    priv->hw->extra_tx_headroom = 4; // 头部预留空间，对于发送不带802.11头的802.3帧的ath11k来说是不需要的，反正不在driver中处理skb
+    priv->hw->vif_data_size = sizeof(struct wireless_simu_vif);
+    priv->hw->sta_data_size = sizeof(struct wireless_simu_sta);
+
+    priv->hw->wiphy->interface_modes =
+        BIT(NL80211_IFTYPE_MONITOR) |
+        BIT(NL80211_IFTYPE_AP) |
+        BIT(NL80211_IFTYPE_STATION);
+    priv->hw->wiphy->iface_combinations = &wireless_simu_if_comb;
+    priv->hw->wiphy->n_iface_combinations = 1; // 这里还没设置成多个的
+
+    priv->hw->wiphy->available_antennas_tx = 1;
+    priv->hw->wiphy->available_antennas_rx = 1;
+
+    // 设备监管标识，暂时使用自定义的监管集合，因为我不会使用默认的CN监管
+    // ath11k中与cfg80211回调函数接口进行对接来进行监管区域的设置
+    priv->hw->wiphy->regulatory_flags = (REGULATORY_STRICT_REG | REGULATORY_CUSTOM_REG);
+    wiphy_apply_custom_regulatory(priv->hw->wiphy, &wireless_simu_regd);
+
+    // hw中队列数量设置，一般为4，因为硬件中一般会使用4个队列（对应于4个Qos等级）去发送data数据帧，mgmt单独再起一个队列
+    priv->hw->queues = WIRELESS_SIMU_HW_QUEUE;
+
+    /* wiphy扩展标识，用于nl80211部分功能的选择启用
+     * nl80211用于userspace的控制软件对网卡进行控制
+     */
+    wiphy_ext_feature_set(priv->hw->wiphy, NL80211_EXT_FEATURE_CQM_RSSI_LIST);
+
     /*
      * mac address
      * 在高通 ath11k driver 中, 对每一个 radio 都注册了一个ieee80211_hw ,

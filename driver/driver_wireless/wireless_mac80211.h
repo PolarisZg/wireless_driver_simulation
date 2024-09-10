@@ -6,38 +6,75 @@
 
 struct wireless_simu;
 
+#define WIRELESS_SIMU_HW_QUEUE 4
+
 enum wireless_simu_err_code
 wireless_mac80211_core_probe(struct wireless_simu *priv);
 
+struct wireless_simu_vif
+{
+	struct wireless_simu *priv;
+};
+
+struct wireless_simu_sta
+{
+	struct wireless_simu *priv;
+};
+
+static const struct ieee80211_reg_rule wireless_simu_reg_rules[] = {
+	REG_RULE(2412-10, 2412+10, 40, 0, 20, NL80211_RRF_NO_CCK);
+	REG_RULE(5160-10, 5865+10, 80, 0, 20, 0)
+};
+
+static const struct ieee80211_regdomain wireless_simu_regd = {
+	.n_reg_rules = ARRAY_SIZE(wireless_simu_reg_rules),
+	.alpha2 = 99,
+	.dfs_region = NL80211_DFS_ETSI,
+	.reg_rules = wireless_simu_reg_rules,
+};
+
+static const struct ieee80211_iface_limit wireless_simu_if_limits[] = {
+	{.max = 1, .types = BIT(NL80211_IFTYPE_STATION)},
+	{.max = 1, .types = BIT(NL80211_IFTYPE_AP)},
+	// {.max = 1, .types = BIT(NL80211_IFTYPE_MONITOR)}, // 一般需要在这里添加对monitor if的限制吗
+};
+
+static const struct ieee80211_iface_combination wireless_simu_if_comb = {
+	.limits = wireless_simu_if_limits,
+	.n_limits = ARRAY_SIZE(wireless_simu_if_limits),
+	.max_interfaces = 2, // 对齐上方limit中max的和
+	.num_different_channels = 1,
+};
+
 #define CHAN2G(_channel, _freq, _flags) { \
-	.band                   = NL80211_BAND_2GHZ, \
-	.hw_value               = (_channel), \
-	.center_freq            = (_freq), \
-	.flags                  = (_flags), \
-	.max_antenna_gain       = 0, \
-	.max_power              = 30, \
+	.band = NL80211_BAND_2GHZ,            \
+	.hw_value = (_channel),               \
+	.center_freq = (_freq),               \
+	.flags = (_flags),                    \
+	.max_antenna_gain = 0,                \
+	.max_power = 30,                      \
 }
 
 #define CHAN5G(_channel, _freq, _flags) { \
-	.band                   = NL80211_BAND_5GHZ, \
-	.hw_value               = (_channel), \
-	.center_freq            = (_freq), \
-	.flags                  = (_flags), \
-	.max_antenna_gain       = 0, \
-	.max_power              = 30, \
+	.band = NL80211_BAND_5GHZ,            \
+	.hw_value = (_channel),               \
+	.center_freq = (_freq),               \
+	.flags = (_flags),                    \
+	.max_antenna_gain = 0,                \
+	.max_power = 30,                      \
 }
 
 #define CHAN6G(_channel, _freq, _flags) { \
-	.band                   = NL80211_BAND_6GHZ, \
-	.hw_value               = (_channel), \
-	.center_freq            = (_freq), \
-	.flags                  = (_flags), \
-	.max_antenna_gain       = 0, \
-	.max_power              = 30, \
+	.band = NL80211_BAND_6GHZ,            \
+	.hw_value = (_channel),               \
+	.center_freq = (_freq),               \
+	.flags = (_flags),                    \
+	.max_antenna_gain = 0,                \
+	.max_power = 30,                      \
 }
 
 static const struct ieee80211_channel wireless_simu_2ghz_channels[] = {
-    CHAN2G(1, 2412, 0),
+	CHAN2G(1, 2412, 0),
 	CHAN2G(2, 2417, 0),
 	CHAN2G(3, 2422, 0),
 	CHAN2G(4, 2427, 0),
@@ -54,7 +91,7 @@ static const struct ieee80211_channel wireless_simu_2ghz_channels[] = {
 };
 
 static const struct ieee80211_channel wireless_simu_5ghz_channels[] = {
-    CHAN5G(36, 5180, 0),
+	CHAN5G(36, 5180, 0),
 	CHAN5G(40, 5200, 0),
 	CHAN5G(44, 5220, 0),
 	CHAN5G(48, 5240, 0),
@@ -85,7 +122,7 @@ static const struct ieee80211_channel wireless_simu_5ghz_channels[] = {
 };
 
 static const struct ieee80211_channel wireless_simu_6ghz_channels[] = {
-    CHAN6G(1, 5955, 0),
+	CHAN6G(1, 5955, 0),
 	CHAN6G(5, 5975, 0),
 	CHAN6G(9, 5995, 0),
 	CHAN6G(13, 6015, 0),
@@ -151,7 +188,8 @@ static const struct ieee80211_channel wireless_simu_6ghz_channels[] = {
 
 /* rate 参考 wireless_simu 的驱动代码, 不对不同的频率进行区分*/
 
-enum wireless_simu_hw_rate_cck {
+enum wireless_simu_hw_rate_cck
+{
 	WIRELESS_SIMU_HW_RATE_CCK_LP_11M = 0,
 	WIRELESS_SIMU_HW_RATE_CCK_LP_5_5M,
 	WIRELESS_SIMU_HW_RATE_CCK_LP_2M,
@@ -161,7 +199,8 @@ enum wireless_simu_hw_rate_cck {
 	WIRELESS_SIMU_HW_RATE_CCK_SP_2M,
 };
 
-enum wireless_simu_hw_rate_ofdm {
+enum wireless_simu_hw_rate_ofdm
+{
 	WIRELESS_SIMU_HW_RATE_OFDM_48M = 0,
 	WIRELESS_SIMU_HW_RATE_OFDM_24M,
 	WIRELESS_SIMU_HW_RATE_OFDM_12M,
@@ -173,29 +212,29 @@ enum wireless_simu_hw_rate_ofdm {
 };
 
 static struct ieee80211_rate wireless_simu_rates[] = {
-    { .bitrate = 10,
-	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_1M },
-	{ .bitrate = 20,
-	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_2M,
-	  .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_2M,
-	  .flags = IEEE80211_RATE_SHORT_PREAMBLE },
-	{ .bitrate = 55,
-	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_5_5M,
-	  .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_5_5M,
-	  .flags = IEEE80211_RATE_SHORT_PREAMBLE },
-	{ .bitrate = 110,
-	  .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_11M,
-	  .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_11M,
-	  .flags = IEEE80211_RATE_SHORT_PREAMBLE },
+	{.bitrate = 10,
+	 .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_1M},
+	{.bitrate = 20,
+	 .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_2M,
+	 .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_2M,
+	 .flags = IEEE80211_RATE_SHORT_PREAMBLE},
+	{.bitrate = 55,
+	 .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_5_5M,
+	 .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_5_5M,
+	 .flags = IEEE80211_RATE_SHORT_PREAMBLE},
+	{.bitrate = 110,
+	 .hw_value = WIRELESS_SIMU_HW_RATE_CCK_LP_11M,
+	 .hw_value_short = WIRELESS_SIMU_HW_RATE_CCK_SP_11M,
+	 .flags = IEEE80211_RATE_SHORT_PREAMBLE},
 
-	{ .bitrate = 60, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_6M },
-	{ .bitrate = 90, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_9M },
-	{ .bitrate = 120, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_12M },
-	{ .bitrate = 180, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_18M },
-	{ .bitrate = 240, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_24M },
-	{ .bitrate = 360, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_36M },
-	{ .bitrate = 480, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_48M },
-	{ .bitrate = 540, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_54M },
+	{.bitrate = 60, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_6M},
+	{.bitrate = 90, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_9M},
+	{.bitrate = 120, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_12M},
+	{.bitrate = 180, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_18M},
+	{.bitrate = 240, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_24M},
+	{.bitrate = 360, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_36M},
+	{.bitrate = 480, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_48M},
+	{.bitrate = 540, .hw_value = WIRELESS_SIMU_HW_RATE_OFDM_54M},
 };
 
 #define WIRELESS_SIMU_MAC_FIRST_OFDM_RATE_IDX 4

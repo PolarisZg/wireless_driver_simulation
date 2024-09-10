@@ -63,6 +63,8 @@
 
 #define WIRELESS_TX_RING_BUF_IS_USING 0
 
+#define WIRELESS_MAX_NUM_VIF 4
+
 enum Wireless_DMA_IRQ_STATUS
 {
     WIRELESS_IRQ_TEST = 0,
@@ -153,6 +155,8 @@ struct wireless_simu
     struct ieee80211_supported_band band_5GHZ;
     struct ieee80211_supported_band band_6GHZ;
     u8 mac_addr[ETH_ALEN];
+
+    struct ieee80211_vif vif[WIRELESS_MAX_NUM_VIF];
 
     bool stop;
 };
