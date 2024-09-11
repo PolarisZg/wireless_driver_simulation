@@ -1,4 +1,4 @@
-# uboot.elf download from sudo apt install uboot
+# uboot.elf download from sudo apt install u-boot-qemu
 # cp /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf ./
 
 sudo ../qemu_simudevice/build/qemu-system-riscv64 \
