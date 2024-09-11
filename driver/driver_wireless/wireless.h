@@ -154,9 +154,11 @@ struct wireless_simu
     struct ieee80211_supported_band band_2GHZ;
     struct ieee80211_supported_band band_5GHZ;
     struct ieee80211_supported_band band_6GHZ;
+    bool tx_interrupt_enable;
+    bool rx_interrupt_enable;
     u8 mac_addr[ETH_ALEN];
 
-    struct ieee80211_vif vif[WIRELESS_MAX_NUM_VIF];
+    struct ieee80211_vif *vif[WIRELESS_MAX_NUM_VIF];
 
     bool stop;
 };

@@ -21,16 +21,18 @@ struct wireless_simu_sta
 	struct wireless_simu *priv;
 };
 
-static const struct ieee80211_reg_rule wireless_simu_reg_rules[] = {
-	REG_RULE(2412-10, 2412+10, 40, 0, 20, NL80211_RRF_NO_CCK);
-	REG_RULE(5160-10, 5865+10, 80, 0, 20, 0)
-};
+#define REG_RULES { \
+	REG_RULE(2412-10, 2412+10, 40, 0, 20, NL80211_RRF_NO_CCK), \
+	REG_RULE(5160-10, 5865+10, 80, 0, 20, 0), \
+}
+
+static const struct ieee80211_reg_rule wireless_simu_reg_rules[] = REG_RULES;
 
 static const struct ieee80211_regdomain wireless_simu_regd = {
 	.n_reg_rules = ARRAY_SIZE(wireless_simu_reg_rules),
-	.alpha2 = 99,
+	.alpha2 = "99",
 	.dfs_region = NL80211_DFS_ETSI,
-	.reg_rules = wireless_simu_reg_rules,
+	.reg_rules = REG_RULES,
 };
 
 static const struct ieee80211_iface_limit wireless_simu_if_limits[] = {

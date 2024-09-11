@@ -12,16 +12,41 @@ static int wireless_mac80211_start(struct ieee80211_hw *hw)
     struct wireless_simu *priv = hw->priv;
 
     // 清空vif
-    for(int i = 0; i < ARRAY_SIZE(priv->vif); i++){
+    for(int i = 0; i < WIRELESS_MAX_NUM_VIF; i++){
         priv->vif[i] = NULL;
     }
 
+    // 打开天线
 
+    // 申请dma通道和ring，但是这个已经在pci中做过了
+
+    // 申请中断，注册rx和tx complete, 这个已经在pci中申请过中断
+    priv->tx_interrupt_enable = true;
+    priv->rx_interrupt_enable = true;
+
+    pr_info("%s : mac80211 start done \n", WIRELESS_SIMU_DEVICE_NAME);
     return 0;
 }
 
 static void wireless_mac80211_stop(struct ieee80211_hw *hw)
 {
+    pr_info("%s : mac80211 stop \n", WIRELESS_SIMU_DEVICE_NAME);
+    struct wireless_simu *priv = hw->priv;
+
+    // 关闭天线
+
+    // 停掉队列
+
+    // 关闭driver中的vif
+    for(int i = 0; i < WIRELESS_MAX_NUM_VIF; i++){
+        priv->vif[i] = NULL;
+    }
+
+    // 关闭中断
+    priv->tx_interrupt_enable = false;
+    priv->rx_interrupt_enable = false;
+
+    pr_info("%s : mac80211 stop done \n", WIRELESS_SIMU_DEVICE_NAME);
 }
 
 static int wireless_mac80211_add_interface(struct ieee80211_hw *hw,
