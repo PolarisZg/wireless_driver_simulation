@@ -72,6 +72,8 @@ enum Wireless_DMA_IRQ_STATUS
     WIRELESS_IRQ_DMA_DELALL_END,
     WIRELESS_IRQ_RX_START,
     WIRELESS_IRQ_DMA_DEVICE_TO_MEM_END,
+    WIRELESS_IRQ_MAC80211_TX_COMPLETE,
+    WIRELESS_IRQ_MAC80211_RX
 };
 
 enum Wireless_LongTimeEvent
@@ -151,6 +153,8 @@ struct wireless_simu
     struct Wireless_Rx_Ring rx_ring;
 
     struct ieee80211_hw *hw;
+    struct mutex mac80211_conf_mutex;
+    unsigned int filter_flags;
     struct ieee80211_supported_band band_2GHZ;
     struct ieee80211_supported_band band_5GHZ;
     struct ieee80211_supported_band band_6GHZ;

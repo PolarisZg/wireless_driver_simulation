@@ -79,6 +79,12 @@ static irqreturn_t wireless_simu_irq_handler(int irq, void *dev)
     case WIRELESS_IRQ_DMA_DEVICE_TO_MEM_END:
         wireless_rx(priv);
         break;
+    case WIRELESS_IRQ_MAC80211_TX_COMPLETE:
+
+        break;
+    case WIRELESS_IRQ_MAC80211_RX:
+
+        break;
     default:
         break;
     }
@@ -254,7 +260,7 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
 
     pr_info("%s : pci device probe done \n", WIRELESS_SIMU_DEVICE_NAME);
 
-    wireless_simu_dma_test(priv);
+    // wireless_simu_dma_test(priv);
 
     wireless_mac80211_core_probe(priv);
     return 0;
@@ -270,11 +276,13 @@ static void wireless_simu_pci_remove(struct pci_dev *pdev)
     if (priv)
     {
         priv->stop = true;
+        wireless_mac80211_core_remove(priv);
         iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_EVENT);
         iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
         wireless_tx_ring_exit(priv);
         wireless_rx_ring_exit(priv);
         pci_iounmap(pdev, priv->mmio_addr);
+        free_irq(priv->irq_vectors_num, priv->pci_dev);
         pci_free_irq_vectors(pdev);
         pci_release_regions(pdev);
         pci_disable_device(pdev);

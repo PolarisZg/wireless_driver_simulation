@@ -1,9 +1,23 @@
 #include "wireless_mac80211.h"
 
+static void wireless_simu_mac_tx_end(int irq, struct wireless_simu *priv){
+    // 取出skb，或者其他东西，比如tx_info, ack 状态之类的
+    // 另外，这个tx end应该在什么时候调用？是发送到空中之后，还是发送到firmware之后
+    // 插入tx_end skb 队列
+    // 调度启动一个作业
+}
+
+static void wireless_simu_mac_rx(int irq, struct wireless_simu *priv){
+    // 取出skb
+    // 插入rx skb队列
+    // 调度启动一个作业
+}
+
 static void wireless_mac80211_tx(struct ieee80211_hw *dev,
                                  struct ieee80211_tx_control *control,
                                  struct sk_buff *skb)
 {
+
 }
 
 static int wireless_mac80211_start(struct ieee80211_hw *hw)
@@ -66,11 +80,35 @@ static int wireless_mac80211_config(struct ieee80211_hw *hw,
     return 0;
 }
 
+/* 在这里写明设备可以上报给mac80211子系统的帧类型，写多了也没事，反正不上报又无所谓
+ * FIF_FCSFAIL通过FCS检定失败的帧，需对这些帧设置RX_FLAG_FAILED_FCS_CRC
+ * FIF_PLCPFAIL 通过PLCP CRC检定失败的帧，需对这些帧设置RX_FLAG_FAILED_PLCP_CRC
+ */
+#define SUPPORT_FILTERS \
+    (FIF_ALLMULTI | \
+    FIF_FCSFAIL | \
+    FIF_PLCPFAIL | \
+    FIF_BCN_PRBRESP_PROMISC | \
+    FIF_CONTROL | \
+    FIF_OTHER_BSS | \
+    FIF_PSPOLL | \
+    FIF_PROBE_REQ | \
+    FIF_MCAST_ACTION)
+
 static void wireless_mac80211_configure_filter(struct ieee80211_hw *hw,
                                                unsigned int changed_flags,
                                                unsigned int *total_flags,
                                                u64 multicast)
 {
+    // 必须编写的回调函数
+    // 该函数表示硬件会上报给mac80211子系统的帧类型，一般来说上报的帧类型越多越好，但会带来性能的问题
+    struct wireless_simu *priv = hw->priv;
+    mutex_lock(&priv->mac80211_conf_mutex);
+    
+    *total_flags &= SUPPORT_FILTERS;
+    priv->filter_flags = *total_flags;
+
+    mutex_unlock(&priv->mac80211_conf_mutex);
 }
 
 static void wireless_mac80211_bss_info_changed(struct ieee80211_hw *hw,
@@ -210,6 +248,8 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
     struct ieee80211_hw *hw = NULL;
     enum wireless_simu_err_code err = SUCCESS;
 
+    mutex_init(&priv->mac80211_conf_mutex);
+
     hw = ieee80211_alloc_hw(sizeof(*priv), &wireless_mac80211_ops);
     if (!hw)
     {
@@ -325,4 +365,16 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
 err_free_dev:
     ieee80211_free_hw(hw);
     return err;
+}
+
+int wireless_mac80211_core_remove(struct wireless_simu *priv){
+    struct ieee80211_hw *hw = priv->hw;
+    if(!hw) {
+        pr_info("%s : mac device remove \n", WIRELESS_SIMU_DEVICE_NAME);
+        return 0;
+    }
+
+    ieee80211_unregister_hw(hw);
+    ieee80211_free_hw(hw);
+    return 0;
 }

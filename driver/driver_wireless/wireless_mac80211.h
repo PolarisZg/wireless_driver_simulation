@@ -11,6 +11,8 @@ struct wireless_simu;
 enum wireless_simu_err_code
 wireless_mac80211_core_probe(struct wireless_simu *priv);
 
+int wireless_mac80211_core_remove(struct wireless_simu *priv);
+
 struct wireless_simu_vif
 {
 	struct wireless_simu *priv;
