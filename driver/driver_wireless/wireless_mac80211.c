@@ -66,12 +66,54 @@ static void wireless_mac80211_stop(struct ieee80211_hw *hw)
 static int wireless_mac80211_add_interface(struct ieee80211_hw *hw,
                                            struct ieee80211_vif *vif)
 {
+    pr_info("%s : add interface start \n", WIRELESS_SIMU_DEVICE_NAME);
+
+    struct wireless_simu *priv = hw->priv;
+    struct wireless_simu_vif *simu_vif = (struct wireless_simu_vif *)vif->drv_priv;
+    memset(simu_vif, 0, sizeof(struct wireless_simu_vif));
+
+    mutex_lock(&priv->mac80211_conf_mutex);
+
+    int vif_id = 0;
+    for(vif_id = 0; vif_id < ARRAY_SIZE(priv->vif) ; vif_id++){
+        if(priv->vif[vif_id] == NULL)
+            break;
+    }
+    if(vif_id == ARRAY_SIZE(priv->vif)){
+        pr_err("%s : cannt add interface no more space \n", WIRELESS_SIMU_DEVICE_NAME);
+        return -EBUSY;
+    }
+    priv->vif[vif_id] = vif;
+    simu_vif->vif_id = vif_id;
+    simu_vif->priv = priv;
+
+    if(vif->type != NL80211_IFTYPE_STATION || vif->type != NL80211_IFTYPE_AP || vif->type != NL80211_IFTYPE_MONITOR){
+        mutex_unlock(&priv->mac80211_conf_mutex);
+        return -EINVAL;
+    }
+
+    // 设置队列id, 因为之前设置了hw的flag IEEE80211_HW_QUEUE_CONTROL
+    pr_info("%s : add interface %d type \n", WIRELESS_SIMU_DEVICE_NAME, vif->type);
+
+    for(int i = 0; i < ARRAY_SIZE(vif->hw_queue); i++)
+        vif->hw_queue[i] = i % (WIRELESS_SIMU_HW_QUEUE - 1); // 这里我也不懂为什么要减一
+
+    if(vif->type == NL80211_IFTYPE_AP)
+        vif->cab_queue = priv->vif_num % (WIRELESS_SIMU_HW_QUEUE - 1);
+    else
+        vif->cab_queue = IEEE80211_INVAL_HW_QUEUE;
+    
+    // 之后是一些我看不懂的硬件配置
+
+    mutex_unlock(&priv->mac80211_conf_mutex);
     return 0;
 }
 
 static void wireless_mac80211_remove_interface(struct ieee80211_hw *hw,
                                                struct ieee80211_vif *vif)
 {
+    struct wireless_simu *priv = hw->priv;
+    struct wireless_simu_vif *simu_vif = (struct wireless_simu_vif *)vif->drv_priv;
 }
 
 static int wireless_mac80211_config(struct ieee80211_hw *hw,
@@ -300,6 +342,7 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
     ieee80211_hw_set(priv->hw, REPORTS_TX_ACK_STATUS);
     ieee80211_hw_set(priv->hw, AP_LINK_PS); // 让硬件管理PS，但硬件实际并不支持PS管理，所以就相当于禁用掉
     ieee80211_hw_set(priv->hw, SIGNAL_DBM);
+    ieee80211_hw_set(priv->hw, QUEUE_CONTROL);
 
     // ieee80211_hw_set(priv->hw, AMPDU_AGGREGATION); // 禁用AMPDU
     priv->hw->extra_tx_headroom = 4; // 头部预留空间，对于发送不带802.11头的802.3帧的ath11k来说是不需要的，反正不在driver中处理skb
@@ -312,6 +355,7 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
         BIT(NL80211_IFTYPE_STATION);
     priv->hw->wiphy->iface_combinations = &wireless_simu_if_comb;
     priv->hw->wiphy->n_iface_combinations = 1; // 这里还没设置成多个的
+    priv->vif_num = 0;
 
     priv->hw->wiphy->available_antennas_tx = 1;
     priv->hw->wiphy->available_antennas_rx = 1;

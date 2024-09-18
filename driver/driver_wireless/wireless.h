@@ -163,6 +163,7 @@ struct wireless_simu
     u8 mac_addr[ETH_ALEN];
 
     struct ieee80211_vif *vif[WIRELESS_MAX_NUM_VIF];
+    int vif_num;
 
     bool stop;
 };

@@ -16,6 +16,7 @@ int wireless_mac80211_core_remove(struct wireless_simu *priv);
 struct wireless_simu_vif
 {
 	struct wireless_simu *priv;
+	int vif_id;
 };
 
 struct wireless_simu_sta
