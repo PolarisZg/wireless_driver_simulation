@@ -114,6 +114,10 @@ static void wireless_mac80211_remove_interface(struct ieee80211_hw *hw,
 {
     struct wireless_simu *priv = hw->priv;
     struct wireless_simu_vif *simu_vif = (struct wireless_simu_vif *)vif->drv_priv;
+
+    mutex_lock(&priv->mac80211_conf_mutex);
+
+    mutex_unlock(&priv->mac80211_conf_mutex);
 }
 
 static int wireless_mac80211_config(struct ieee80211_hw *hw,
