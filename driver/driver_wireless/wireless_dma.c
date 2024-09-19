@@ -138,7 +138,7 @@ enum wireless_simu_err_code wireless_simu_dma_tx(struct wireless_simu *priv, voi
 
     mutex_lock(dma_tx_mutex);
 
-    dma_addr = dma_map_single(&priv->pci_dev->dev, data, length, DMA_MEM_TO_DEV);
+    dma_addr = dma_map_single(&priv->pci_dev->dev, data, length, DMA_TO_DEVICE);
     if (dma_mapping_error(&priv->pci_dev->dev, dma_addr))
     {
         pr_err("%s : dma_addr err \n", WIRELESS_SIMU_DEVICE_NAME);
@@ -189,7 +189,7 @@ enum wireless_simu_err_code wireless_simu_dma_tx(struct wireless_simu *priv, voi
     return SUCCESS;
 
 FULL_END:
-    dma_unmap_single(&priv->pci_dev->dev, dma_addr, length, DMA_MEM_TO_DEV);
+    dma_unmap_single(&priv->pci_dev->dev, dma_addr, length, DMA_TO_DEVICE);
 END:
     mutex_unlock(dma_tx_mutex);
     return ret;
