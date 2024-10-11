@@ -12,6 +12,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/dmaengine.h>
+#include <linux/dma-direction.h>
 
 #include <linux/skbuff.h>
 #include <linux/mutex.h>
@@ -26,7 +27,7 @@ static void wireless_tx_end(struct wireless_simu *priv)
     u32 dma_tx_flag = ioread32(priv->mmio_addr + WIRELESS_REG_DMA_OUT_FLAG);
     pr_info("%s : mem to device dma end ; ring id %08x , flag %08x\n", WIRELESS_SIMU_DEVICE_NAME, dma_tx_ring_id, dma_tx_flag);
     priv->tx_ring.tx_list[dma_tx_ring_id].flag = dma_tx_flag;
-    dma_unmap_single(&pdev->dev, priv->tx_ring.tx_list[dma_tx_ring_id].dma_addr, priv->tx_ring.tx_list[dma_tx_ring_id].data_length, DMA_MEM_TO_DEV);
+    dma_unmap_single(&pdev->dev, priv->tx_ring.tx_list[dma_tx_ring_id].dma_addr, priv->tx_ring.tx_list[dma_tx_ring_id].data_length, DMA_TO_DEVICE);
     iowrite32(0, priv->mmio_addr + WIRELESS_REG_EVENT);
 }
 
@@ -98,8 +99,7 @@ static const struct pci_device_id wireless_simu_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, wireless_simu_id_table);
 
-
-static int wireless_simu_pci_claim(struct wireless_simu* priv)
+static int wireless_simu_pci_claim(struct wireless_simu *priv)
 {
     int ret = 0;
     static void __iomem *mmio_addr = NULL;
@@ -159,7 +159,7 @@ PCI_END:
     return ret;
 }
 
-static int wireless_simu_pci_irq_init(struct wireless_simu* priv)
+static int wireless_simu_pci_irq_init(struct wireless_simu *priv)
 {
     int num_vectors = 0;
     int ret = 0;
@@ -225,13 +225,15 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
     priv->pci_dev = pdev;
 
     ret = wireless_simu_pci_claim(priv);
-    if(ret){
+    if (ret)
+    {
         pr_err("%s : pci clim err %d \n", WIRELESS_SIMU_DEVICE_NAME, ret);
         goto End;
     }
 
     ret = wireless_simu_pci_irq_init(priv);
-    if(ret){
+    if (ret)
+    {
         pr_err("%s : pci irq err %d \n", WIRELESS_SIMU_DEVICE_NAME, ret);
         goto End;
     }
@@ -247,7 +249,8 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
     }
 
     ret = wireless_simu_tx_ring_init(priv);
-    if(ret){
+    if (ret)
+    {
         pr_info("%s : tx ring init err %08x \n", WIRELESS_SIMU_DEVICE_NAME, ret);
         goto End;
     }
@@ -262,6 +265,20 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
 
     // wireless_simu_dma_test(priv);
 
+    ret = wireless_simu_hal_srng_init(priv);
+    if (ret)
+    {
+        goto End;
+    }
+
+    wireless_simu_hal_srng_test(priv);
+
+    priv->workqueue_aux = create_singlethread_workqueue("wireless_simu_aux_wq"); // 申请成功后记得退出时删除
+    if (!priv->workqueue_aux)
+    {
+        ret = -1;
+        goto End;
+    }
     wireless_mac80211_core_probe(priv);
     return 0;
 
@@ -277,6 +294,8 @@ static void wireless_simu_pci_remove(struct pci_dev *pdev)
     {
         priv->stop = true;
         wireless_mac80211_core_remove(priv);
+        wireless_simu_hal_srng_deinit(priv);
+        destroy_workqueue(priv->workqueue_aux);
         iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_EVENT);
         iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
         wireless_tx_ring_exit(priv);

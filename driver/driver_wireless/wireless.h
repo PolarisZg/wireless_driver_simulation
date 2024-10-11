@@ -22,6 +22,13 @@
 #include "wireless_mac80211.h"
 #include "wireless_err.h"
 #include "wireless_dma.h"
+#include "wireless_dptx.h"
+#include "wireless_dprx.h"
+#include "wireless_wmi.h"
+#include "wireless_htc.h"
+#include "wireless_ce.h"
+#include "wireless_hal.h"
+#include "wireless_hif.h"
 
 #define WIRELESS_SIMU_DEVICE_NAME "wirelesssimu"
 #define PCI_VENDOR_ID_QEMU 0x1234
@@ -84,6 +91,11 @@ enum Wireless_LongTimeEvent
     WIRELESS_EVENT_TEST,
 };
 
+// dev_flag 需要与设备端同步修改, 驱动中对应于unsigned long wireless_simu::dev_flag
+enum wireless_simu_dev_flags{
+    WIRELESS_SIMU_DEV_FLAG_CRASH_FLUSH,
+};
+
 /*
  * @flag:   0bit 是否被占用
  *              0 未被占用
@@ -136,9 +148,14 @@ struct Wireless_Rx_Ring
     u32 rx_list_tail;
 };
 
+#define WIRELESS_SIMU_TX_MGMT_NUM_PENDING_MAX 512 // mgmt tx queue max save data num
+#define WIRELESS_SIMU_TX_MGMT_TARGET_MAX_SUPPORT 64
+#define WIRELESS_SIMU_PRB_RSP_DROP_THRESHOLD ((WIRELESS_SIMU_TX_MGMT_TARGET_MAX_SUPPORT * 3) >> 2)
+
 struct wireless_simu
 {
     struct pci_dev *pci_dev;
+    struct device dev;
     void __iomem *mmio_addr;
     u32 cdev_num;
     struct cdev *char_dev;
@@ -153,7 +170,7 @@ struct wireless_simu
     struct Wireless_Rx_Ring rx_ring;
 
     struct ieee80211_hw *hw;
-    struct mutex mac80211_conf_mutex;
+    struct mutex mac_conf_mutex;
     unsigned int filter_flags;
     struct ieee80211_supported_band band_2GHZ;
     struct ieee80211_supported_band band_5GHZ;
@@ -162,8 +179,32 @@ struct wireless_simu
     bool rx_interrupt_enable;
     u8 mac_addr[ETH_ALEN];
 
+    struct wireless_simu_hal hal;
+    
+    // tx_mgmt 会插入到这个workqueue中
+    struct workqueue_struct *workqueue_aux;
+
     struct ieee80211_vif *vif[WIRELESS_MAX_NUM_VIF];
-    int vif_num;
+    // int vif_num;
+
+    // mgmt tx 相关
+    struct sk_buff_head mgmt_tx_queue;
+    atomic_t num_pending_mgmt_tx;
+    struct work_struct mgmt_tx_work;
+    wait_queue_head_t txmgmt_empty_waitq;
+    // mgmt id
+    struct idr txmgmt_idr;
+    // mgmt id 变化时加锁
+    spinlock_t txmgmt_idr_lock;
+
+    // ce 发送等待队列, 会被wmi层调用
+    wait_queue_head_t tx_ce_desc_wq;
+
+    // htc tx 时加锁
+    spinlock_t htc_tx_lock;
+
+    // device flag 反正最后只会初始化一个设备，写道这里也没差
+    unsigned long dev_flag;
 
     bool stop;
 };
