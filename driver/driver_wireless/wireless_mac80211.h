@@ -13,10 +13,59 @@ wireless_mac80211_core_probe(struct wireless_simu *priv);
 
 int wireless_mac80211_core_remove(struct wireless_simu *priv);
 
+// 80211帧加密方式，使用枚举单独列出便于firmware端同步
+enum hal_encrypt_type {
+	HAL_ENCRYPT_TYPE_WEP_40,
+	HAL_ENCRYPT_TYPE_WEP_104,
+	HAL_ENCRYPT_TYPE_TKIP_NO_MIC,
+	HAL_ENCRYPT_TYPE_WEP_128,
+	HAL_ENCRYPT_TYPE_TKIP_MIC,
+	HAL_ENCRYPT_TYPE_WAPI,
+	HAL_ENCRYPT_TYPE_CCMP_128,
+	HAL_ENCRYPT_TYPE_OPEN,
+	HAL_ENCRYPT_TYPE_CCMP_256,
+	HAL_ENCRYPT_TYPE_GCMP_128,
+	HAL_ENCRYPT_TYPE_AES_GCMP_256,
+	HAL_ENCRYPT_TYPE_WAPI_GCM_SM4,
+};
+
+enum wireless_simu_skb_cb_flags {
+	WIRELESS_SIMU_SKB_HW_80211_ENCAP = BIT(0),
+	WIRELESS_SIMU_SKB_CIPHER_SET = BIT(1),
+};
+
+struct wireless_simu_skb_cb{
+	dma_addr_t paddr;
+	u8 flags;
+	u32 cipher;
+	struct ieee80211_vif *vif;
+}__packed;
+
+static inline struct wireless_simu_skb_cb *WIRELESS_SIMU_SKB_CB(struct sk_buff *skb)
+{
+	BUILD_BUG_ON(sizeof(struct wireless_simu_skb_cb) > 
+		IEEE80211_TX_INFO_DRIVER_DATA_SIZE);
+	return (struct wireless_simu_skb_cb *)&IEEE80211_SKB_CB(skb)->driver_data;
+}
+
+struct wireless_simu_tx_params_arg {
+	u8 acm;
+	u8 aifs;
+	u16 cwmin;
+	u16 cwmax;
+	u16 txop;
+	u8 no_ack;
+};
+
 struct wireless_simu_vif
 {
 	struct wireless_simu *priv;
 	int vif_id;
+	struct wireless_simu_tx_params_arg ac_be;
+	struct wireless_simu_tx_params_arg ac_bk;
+	struct wireless_simu_tx_params_arg ac_vi;
+	struct wireless_simu_tx_params_arg ac_vo;
+
 };
 
 struct wireless_simu_sta
