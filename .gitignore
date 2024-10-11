@@ -21,6 +21,7 @@ buildroot/
 qemu
 qemu/
 qemu_*
+linux-stable/
 
 openwrt-*
 openwrt-21.02.0-armvirt-64-rootfs-ext4.img.gz

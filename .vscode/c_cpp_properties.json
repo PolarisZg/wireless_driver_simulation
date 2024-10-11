@@ -4,8 +4,9 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/src/linux-headers-6.5.0-44-generic/include",
-                "/usr/src/linux-hwe-6.5-headers-6.5.0-44/include/",
+                "${workspaceFolder}/linux-stable/include",
+                // "/usr/src/linux-headers-6.5.0-44-generic/include",
+                // "/usr/src/linux-hwe-6.5-headers-6.5.0-44/include/",
                 "/usr/include/**"
             ],
             "defines": [
