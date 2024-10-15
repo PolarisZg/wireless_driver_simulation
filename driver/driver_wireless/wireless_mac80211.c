@@ -209,8 +209,11 @@ static int wireless_mac80211_start(struct ieee80211_hw *hw)
     pr_info("%s : mac80211 start done \n", WIRELESS_SIMU_DEVICE_NAME);
     return 0;
 }
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,11,0)
 static void wireless_mac80211_stop(struct ieee80211_hw *hw, bool suspend)
+#else
+static void wireless_mac80211_stop(struct ieee80211_hw *hw)
+#endif
 {
     pr_info("%s : mac80211 stop \n", WIRELESS_SIMU_DEVICE_NAME);
     struct wireless_simu *priv = hw->priv;
@@ -636,7 +639,11 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
     return SUCCESS;
 
 err_free_dev:
+    kfree(priv->band_2GHZ.channels);
+    kfree(priv->band_5GHZ.channels);
+    kfree(priv->band_6GHZ.channels);
     ieee80211_free_hw(hw);
+    priv->hw = NULL;
     return err;
 }
 

@@ -16,6 +16,7 @@
 #include <linux/dmapool.h>
 #include <linux/dmaengine.h>
 #include <net/cfg80211.h>
+#include <linux/version.h>
 
 #include <linux/skbuff.h>
 #include <linux/mutex.h>
