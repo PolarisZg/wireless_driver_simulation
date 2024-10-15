@@ -220,6 +220,7 @@ static int hal_srng_get_ring_id(struct wireless_simu_hal *hal, enum hal_ring_typ
 
 static void hal_srng_src_hw_init(struct wireless_simu *priv, struct hal_srng *srng)
 {
+	pr_info("%s : %d ring hal srng src hw init start \n", WIRELESS_SIMU_DEVICE_NAME, srng->ring_id);
 	struct wireless_simu_hal *hal = &priv->hal;
 	u32 reg_base;
 	u32 val;
@@ -234,10 +235,10 @@ static void hal_srng_src_hw_init(struct wireless_simu *priv, struct hal_srng *sr
 
 	val = FIELD_PREP(HAL_TCL1_RING_BASE_MSB_RING_BASE_ADDR_MSB, ((u64)srng->ring_base_paddr >> HAL_ADDR_MSB_REG_SHIFT)) |
 		  FIELD_PREP(HAL_TCL1_RING_BASE_MSB_RING_SIZE, (srng->entry_size * srng->num_entries));
-	wireless_hif_write32(priv, reg_base + 1, val);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(1), val);
 
 	val = FIELD_PREP(HAL_REO1_RING_ID_ENTRY_SIZE, srng->entry_size);
-	wireless_hif_write32(priv, reg_base + 2, val);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(2), val);
 
 	if (srng->ring_id == HAL_SRNG_RING_ID_WBM_IDLE_LINK)
 	{
@@ -246,23 +247,23 @@ static void hal_srng_src_hw_init(struct wireless_simu *priv, struct hal_srng *sr
 
 		val = FIELD_PREP(HAL_TCL1_RING_BASE_MSB_RING_BASE_ADDR_MSB, ((u64)srng->ring_base_paddr >> HAL_ADDR_MSB_REG_SHIFT)) |
 			  FIELD_PREP(HAL_TCL1_RING_BASE_MSB_RING_SIZE, (srng->entry_size * srng->num_entries));
-		wireless_hif_write32(priv, reg_base + 1, val);
+		wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(1), val);
 
 		val = FIELD_PREP(HAL_REO1_RING_ID_ENTRY_SIZE, srng->entry_size);
-		wireless_hif_write32(priv, reg_base + 2, val);
+		wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(2), val);
 	}
 
 	// interrupt set up
 	val = FIELD_PREP(HAL_TCL1_RING_CONSR_INT_SETUP_IX0_INTR_TMR_THOLD, srng->intr_timer_thres_us) |
 		  FIELD_PREP(HAL_TCL1_RING_CONSR_INT_SETUP_IX0_BATCH_COUNTER_THOLD, (srng->intr_batch_cntr_thres_entries * srng->entry_size));
-	wireless_hif_write32(priv, reg_base + 3, val);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(3), val);
 
 	val = 0;
 	if (srng->flags & HAL_SRNG_FLAGS_LOW_THRESH_INTR_EN)
 	{
 		val = FIELD_PREP(HAL_TCL1_RING_CONSR_INT_SETUP_IX1_LOW_THOLD, srng->u.src_ring.low_threshold);
 	}
-	wireless_hif_write32(priv, reg_base + 4, val);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(4), val);
 
 	if (srng->ring_id != HAL_SRNG_RING_ID_WBM_IDLE_LINK)
 	{
@@ -270,14 +271,14 @@ static void hal_srng_src_hw_init(struct wireless_simu *priv, struct hal_srng *sr
 					  ((unsigned long)srng->u.src_ring.tp_addr -
 					   (unsigned long)hal->rdp.vaddr); // 参考wireless_simu_hal_srng_setup中对src tp_addr的设计，实际这个差就是ring_id
 
-		wireless_hif_write32(priv, reg_base + 5, tp_addr & HAL_ADDR_LSB_REG_MASK);
-		wireless_hif_write32(priv, reg_base + 6, tp_addr >> HAL_ADDR_MSB_REG_SHIFT);
+		wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(5), tp_addr & HAL_ADDR_LSB_REG_MASK);
+		wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(6), tp_addr >> HAL_ADDR_MSB_REG_SHIFT);
 	}
 
 	// init src ring tail pointer and head pointer,对于src ring的hw来说，hp应该是无效的
 	reg_base = srng->hwreg_base[HAL_SRNG_REG_GRP_R2];
 	wireless_hif_write32(priv, reg_base, 0);
-	wireless_hif_write32(priv, reg_base + 1, 0);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(1), 0);
 	*srng->u.src_ring.tp_addr = 0;
 
 	reg_base = srng->hwreg_base[HAL_SRNG_REG_GRP_R0];
@@ -295,7 +296,7 @@ static void hal_srng_src_hw_init(struct wireless_simu *priv, struct hal_srng *sr
 	val |= HAL_TCL1_RING_MISC_MSI_LOOPCNT_DISABLE;
 
 	val |= HAL_TCL1_RING_MISC_SRNG_ENABLE;
-	wireless_hif_write32(priv, reg_base + 7, val);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(7), val);
 }
 
 static void hal_srng_dst_hw_init(struct wireless_simu *priv, struct hal_srng *srng)
@@ -379,7 +380,8 @@ int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type 
 		{
 			// 此处出现了support shadow reg 问题，但我并不知道该问题应该怎么处理，因此暂时修改为将hp直接指向对应的mmio寄存器
 			srng->u.src_ring.hp_addr = (u32 *)((unsigned long)priv->mmio_addr + reg_base);
-			pr_info("%s : srng setup %d type %d ring num hp_addr %lx \n", WIRELESS_SIMU_DEVICE_NAME, type, ring_id, (unsigned long)srng->u.src_ring.hp_addr);
+			pr_info("%s : srng setup %d type %d ring num hp_addr %lx \n", WIRELESS_SIMU_DEVICE_NAME, 
+			type, ring_id, (unsigned long)srng->u.src_ring.hp_addr - (unsigned long)priv->mmio_addr);
 		}
 	}
 	else
@@ -427,8 +429,11 @@ static int hal_srng_create_config(struct wireless_simu_hal *hal)
 	}
 
 	s = &hal->srng_config[HAL_TEST_SRNG];
-	// s->reg_start[HAL_SRNG_REG_GRP_R0] = srng配置信息 【寄存器组】 的基地址, 这里面存放的是相对于mmio的偏移地址
-	// s->reg_size[HAL_SRNG_REG_GRP_R0] = srng配置信息寄存器组的大小
+	s->reg_start[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP; // srng配置信息 【寄存器组】 的基地址, 这里面存放的是相对于mmio的偏移地址
+	s->reg_size[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP_R0_SIZE; // srng配置信息寄存器组中寄存器的数量
+	s->reg_start[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2;
+	s->reg_size[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2_SIZE;
+
 
 	// 后续就是对不同type的srng载入不同的寄存器地址
 
@@ -488,10 +493,12 @@ int wireless_simu_hal_srng_init(struct wireless_simu *priv)
 	ret = hal_alloc_cont_rdp(hal);
 	if (ret)
 		goto err_hal;
+	pr_info("%s : srng hal rdp vaddr %p paddr %llx \n",WIRELESS_SIMU_DEVICE_NAME, hal->rdp.vaddr, hal->rdp.paddr);
 
 	ret = hal_alloc_cont_wdp(hal);
 	if (ret)
 		goto err_free_cont_rdp;
+	pr_info("%s : srng hal rdp vaddr %p paddr %llx \n",WIRELESS_SIMU_DEVICE_NAME, hal->wrp.vaddr, hal->wrp.paddr);
 
 	hal_register_srng_key(hal);
 
@@ -617,8 +624,6 @@ struct srng_test_pipe
 	u64 timestamp;
 };
 
-#define SRNG_TEST_PIPE_COUNT_MAX 1
-
 struct srng_test
 {
 	struct wireless_simu *priv;
@@ -636,6 +641,9 @@ static struct srng_test_ring *hal_srng_test_alloc_ring(struct wireless_simu *pri
 	if (ring == NULL)
 		return ERR_PTR(-ENOMEM);
 
+	ring->nentries = nentries;
+	ring->nentries_mask = nentries - 1;
+
 	ring->base_addr_owner_space_unaligned = dma_alloc_coherent(&priv->pci_dev->dev, nentries * desc_sz + SRNG_TEST_DESC_RING_ALIGN, &base_addr, GFP_KERNEL);
 	if (!ring->base_addr_owner_space_unaligned)
 	{
@@ -647,6 +655,7 @@ static struct srng_test_ring *hal_srng_test_alloc_ring(struct wireless_simu *pri
 
 	ring->base_addr_owner_space = PTR_ALIGN(ring->base_addr_owner_space_unaligned, SRNG_TEST_DESC_RING_ALIGN);
 	ring->base_addr_test_space = ALIGN(ring->base_addr_test_space_unaligned, SRNG_TEST_DESC_RING_ALIGN);
+	pr_info("%s : srng test ring %p vaddr %llx paddr \n", WIRELESS_SIMU_DEVICE_NAME, ring->base_addr_owner_space, ring->base_addr_test_space);
 
 	return ring;
 }
@@ -809,7 +818,11 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 
 	// 读写操作
 
-
+	/* end free malloc */
+	hal_srng_test_free_pipes(&st);
+	kfree(st.host_config);
+	pr_info("%s : srng test end \n", WIRELESS_SIMU_DEVICE_NAME);
+	return;
 
 err_clear_pipes:
 	hal_srng_test_free_pipes(&st);
