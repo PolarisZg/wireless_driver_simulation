@@ -7,5 +7,5 @@ sudo ../qemu_simudevice/build/qemu-system-riscv64 \
 -kernel ./uboot.elf \
 -device virtio-net-device,netdev=eth0 -netdev tap,id=eth0 \
 -device virtio-rng-pci \
--device polariswfifi \
+-device wirelesssimu \
 -device edu
