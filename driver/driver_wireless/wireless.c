@@ -147,7 +147,7 @@ static int wireless_simu_pci_claim(struct wireless_simu *priv)
         ret = -EIO;
         goto RELEASE_REGIONS;
     }
-    pr_info("%s , pci device request mmio addr done : %p \n", WIRELESS_SIMU_DEVICE_NAME, mmio_addr);
+    pr_info("%s : pci device request mmio addr done : %p \n", WIRELESS_SIMU_DEVICE_NAME, mmio_addr);
     priv->mmio_addr = mmio_addr;
     return 0;
 
@@ -240,24 +240,25 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
 
     pci_set_drvdata(priv->pci_dev, priv);
 
-    ret = wireless_simu_rx_ring_init(priv);
-    if (ret)
-    {
-        pr_info("%s : rx ring init err %d", WIRELESS_SIMU_DEVICE_NAME, ret);
-        wireless_rx_ring_exit(priv);
-        goto End;
-    }
+    // ret = wireless_simu_rx_ring_init(priv);
+    // if (ret)
+    // {
+    //     pr_info("%s : rx ring init err %d", WIRELESS_SIMU_DEVICE_NAME, ret);
+    //     wireless_rx_ring_exit(priv);
+    //     goto End;
+    // }
 
-    ret = wireless_simu_tx_ring_init(priv);
-    if (ret)
-    {
-        pr_info("%s : tx ring init err %08x \n", WIRELESS_SIMU_DEVICE_NAME, ret);
-        goto End;
-    }
-    pr_info("%s : tx ring list init success \n", WIRELESS_SIMU_DEVICE_NAME);
+    // ret = wireless_simu_tx_ring_init(priv);
+    // if (ret)
+    // {
+    //     pr_info("%s : tx ring init err %08x \n", WIRELESS_SIMU_DEVICE_NAME, ret);
+    //     goto End;
+    // }
+    // pr_info("%s : tx ring list init success \n", WIRELESS_SIMU_DEVICE_NAME);
 
     // 启动中断
-    iowrite32(1, priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
+    // iowrite32(1, priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
+    wireless_hif_write32(priv, WIRELESS_REG_IRQ_ENABLE, 1);
     val = ioread32(priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
     pr_info("%s : probe device irq enable \n", WIRELESS_SIMU_DEVICE_NAME);
 
@@ -270,6 +271,7 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
     {
         goto End;
     }
+    pr_info("%s : hal srng init success %p wrp %p rdp \n", WIRELESS_SIMU_DEVICE_NAME, priv->hal.wrp.vaddr, priv->hal.rdp.vaddr);
 
     wireless_simu_hal_srng_test(priv);
 
@@ -298,10 +300,10 @@ static void wireless_simu_pci_remove(struct pci_dev *pdev)
         destroy_workqueue(priv->workqueue_aux);
         iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_EVENT);
         iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
-        wireless_tx_ring_exit(priv);
-        wireless_rx_ring_exit(priv);
+        // wireless_tx_ring_exit(priv);
+        // wireless_rx_ring_exit(priv);
         pci_iounmap(pdev, priv->mmio_addr);
-        free_irq(priv->irq_vectors_num, priv->pci_dev);
+        // free_irq(priv->irq_vectors_num, priv->pci_dev);
         pci_free_irq_vectors(pdev);
         pci_release_regions(pdev);
         pci_disable_device(pdev);
