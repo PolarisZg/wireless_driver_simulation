@@ -851,7 +851,7 @@ static int hal_srng_test_init_ring(struct wireless_simu *priv, struct srng_test_
 	return 0;
 }
 
-void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *skb, u32 id, u8 byte_swap_data)
+static void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *skb, u32 id, u8 byte_swap_data)
 {
 	struct hal_test_sw2hw *desc = buf;
 	dma_addr_t paddr = WIRELESS_SIMU_SKB_CB(skb)->paddr;
@@ -865,7 +865,7 @@ void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *skb, u3
 }
 
 // 专用于srng_test的发送函数，对于其他发送函数需要将模块整合进priv中，对于st来说就直接传过来了
-int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff *skb, u8 pipe_id, u16 transfer_id)
+static int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff *skb, u8 pipe_id, u16 transfer_id)
 {
 	struct srng_test_pipe *pipe = &st->pipes[pipe_id];
 	struct hal_srng *srng;
@@ -877,9 +877,9 @@ int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff *skb, 
 	int num_used;
 
 	/* 对于禁用中断的情景，需要对ring进行遍历来处理已发送完成的entry */
-	if (srng->flags | CE_ATTR_DIS_INTR)
+	if (pipe->attr_flags & CE_ATTR_DIS_INTR)
 	{
-		spin_lock(&st->srng_test_lock);
+		spin_lock_bh(&st->srng_test_lock);
 
 		write_index = pipe->src_ring->write_index;
 		sw_index = pipe->src_ring->sw_index;
@@ -892,14 +892,14 @@ int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff *skb, 
 		spin_unlock_bh(&st->srng_test_lock);
 	}
 
-	spin_lock(&st->srng_test_lock);
+	spin_lock_bh(&st->srng_test_lock);
 
 	write_index = pipe->src_ring->write_index;
 	nentries_mask = pipe->src_ring->nentries_mask;
 
 	srng = &st->priv->hal.srng_list[pipe->src_ring->hal_ring_id];
 
-	spin_lock(&srng->lock);
+	spin_lock_bh(&srng->lock);
 
 	wireless_simu_hal_srng_access_begin(st->priv, srng);
 
@@ -1032,6 +1032,15 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 	}
 	struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
 	skb_cb->paddr = skb_paddr;
+	pr_info("%s : hal srng test data %llx paddr %d size %08x eg\n", WIRELESS_SIMU_DEVICE_NAME, skb_cb->paddr, skb->len, *(skb->data + 25));
+
+	/* 数据传输 */
+	ret = wireless_simu_hal_srng_test_send(&st, skb, 0, 0);
+	if (ret)
+	{
+		pr_err("%s : srng test send data err \n", WIRELESS_SIMU_DEVICE_NAME);
+		goto err_free_dma;
+	}
 
 	/* 数据传输 */
 	ret = wireless_simu_hal_srng_test_send(&st, skb, 0, 0);
