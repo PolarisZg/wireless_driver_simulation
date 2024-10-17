@@ -627,7 +627,7 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
     err = ieee80211_register_hw(hw);
     if (err)
     {
-        pr_info("%s : mac probe : can not register device \n", WIRELESS_SIMU_DEVICE_NAME);
+        pr_info("%s : mac probe : can not register device %d \n", WIRELESS_SIMU_DEVICE_NAME, err);
         err = MAC80211_REGISTER_ERR;
         goto err_free_dev;
     }
