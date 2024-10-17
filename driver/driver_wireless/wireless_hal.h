@@ -422,9 +422,10 @@ struct wireless_simu_hal
 };
 
 struct hal_test_sw2hw{
-    u32 word0;
-    u32 word1;
-    u32 word2;
+    u32 buffer_addr_low;
+	u32 buffer_addr_info; /* %HAL_CE_SRC_DESC_ADDR_INFO_ */
+	u32 meta_info; /* %HAL_CE_SRC_DESC_META_INFO_ */
+	u32 flags; /* %HAL_CE_SRC_DESC_FLAGS_ */
 }__packed;
 
 // 根据params调整hal_srng中对应ring_num的ring的详细内容
@@ -442,5 +443,14 @@ void wireless_simu_hal_srng_deinit(struct wireless_simu *priv);
  * hal srng test
  * 包含 创建srng、发送数据、删除srng*/ 
 void wireless_simu_hal_srng_test(struct wireless_simu *priv);
+
+/* start -- get -- end */
+void wireless_simu_hal_srng_access_begin(struct wireless_simu *priv, struct hal_srng *srng);
+
+int wireless_simu_hal_srng_src_num_free(struct wireless_simu *priv, struct hal_srng *srng, bool sync_hw_ptr);
+
+void wireless_simu_hal_srng_access_end(struct wireless_simu *priv, struct hal_srng *srng);
+
+u32 *wireless_simu_hal_srng_src_get_next_reaped(struct wireless_simu *priv, struct hal_srng *srng);
 
 #endif

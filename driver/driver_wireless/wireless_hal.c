@@ -380,8 +380,8 @@ int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type 
 		{
 			// 此处出现了support shadow reg 问题，但我并不知道该问题应该怎么处理，因此暂时修改为将hp直接指向对应的mmio寄存器
 			srng->u.src_ring.hp_addr = (u32 *)((unsigned long)priv->mmio_addr + reg_base);
-			pr_info("%s : srng setup %d type %d ring num hp_addr %lx \n", WIRELESS_SIMU_DEVICE_NAME, 
-			type, ring_id, (unsigned long)srng->u.src_ring.hp_addr - (unsigned long)priv->mmio_addr);
+			pr_info("%s : srng setup %d type %d ring num hp_addr %lx \n", WIRELESS_SIMU_DEVICE_NAME,
+					type, ring_id, (unsigned long)srng->u.src_ring.hp_addr - (unsigned long)priv->mmio_addr);
 		}
 	}
 	else
@@ -429,11 +429,10 @@ static int hal_srng_create_config(struct wireless_simu_hal *hal)
 	}
 
 	s = &hal->srng_config[HAL_TEST_SRNG];
-	s->reg_start[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP; // srng配置信息 【寄存器组】 的基地址, 这里面存放的是相对于mmio的偏移地址
+	s->reg_start[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP;		  // srng配置信息 【寄存器组】 的基地址, 这里面存放的是相对于mmio的偏移地址
 	s->reg_size[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP_R0_SIZE; // srng配置信息寄存器组中寄存器的数量
 	s->reg_start[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2;
 	s->reg_size[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2_SIZE;
-
 
 	// 后续就是对不同type的srng载入不同的寄存器地址
 
@@ -493,12 +492,12 @@ int wireless_simu_hal_srng_init(struct wireless_simu *priv)
 	ret = hal_alloc_cont_rdp(hal);
 	if (ret)
 		goto err_hal;
-	pr_info("%s : srng hal rdp vaddr %p paddr %llx \n",WIRELESS_SIMU_DEVICE_NAME, hal->rdp.vaddr, hal->rdp.paddr);
+	pr_info("%s : srng hal rdp vaddr %p paddr %llx \n", WIRELESS_SIMU_DEVICE_NAME, hal->rdp.vaddr, hal->rdp.paddr);
 
 	ret = hal_alloc_cont_wdp(hal);
 	if (ret)
 		goto err_free_cont_rdp;
-	pr_info("%s : srng hal rdp vaddr %p paddr %llx \n",WIRELESS_SIMU_DEVICE_NAME, hal->wrp.vaddr, hal->wrp.paddr);
+	pr_info("%s : srng hal rdp vaddr %p paddr %llx \n", WIRELESS_SIMU_DEVICE_NAME, hal->wrp.vaddr, hal->wrp.paddr);
 
 	hal_register_srng_key(hal);
 
@@ -538,6 +537,103 @@ void wireless_simu_hal_srng_deinit(struct wireless_simu *priv)
 	hal_free_cont_rdp(hal);
 	hal_free_cont_wrp(hal);
 	kfree(hal->srng_config);
+}
+
+void wireless_simu_hal_srng_access_begin(struct wireless_simu *priv, struct hal_srng *srng)
+{
+	lockdep_assert_held(&srng->lock);
+
+	if (srng->ring_dir == HAL_SRNG_DIR_SRC)
+	{
+		srng->u.src_ring.cached_tp = *(volatile u32 *)srng->u.src_ring.tp_addr;
+	}
+	else
+	{
+		/* 暂时无法对dst进行验证, 而且下面的flag中的二次处理根本没做 */
+		srng->u.dst_ring.cached_hp = *srng->u.dst_ring.hp_addr;
+
+		if (srng->flags & HAL_SRNG_FLAGS_CACHED)
+			pr_info("%s : hal srng access begin 'hai mei zuo' \n", WIRELESS_SIMU_DEVICE_NAME);
+	}
+}
+
+/* 返回 src ring 中剩余 entry 的个数，sync_hw_ptr 参数为 true 时返回即时的数目, 一般在使用access begin 后设定为 false */
+int wireless_simu_hal_srng_src_num_free(struct wireless_simu *priv, struct hal_srng *srng, bool sync_hw_ptr)
+{
+	u32 tp, hp;
+
+	lockdep_assert_held(&srng->lock);
+
+	hp = srng->u.src_ring.hp; // src hp 由host端修改
+
+	if (sync_hw_ptr)
+	{
+		tp = *srng->u.src_ring.tp_addr;
+		srng->u.src_ring.cached_tp = tp;
+	}
+	else
+	{
+		tp = srng->u.src_ring.cached_tp;
+	}
+
+	if (tp > hp)
+		return ((tp - hp) / srng->entry_size) - 1;
+	else
+		return ((srng->ring_size - hp + tp) / srng->entry_size) - 1;
+}
+
+/* update cached ring head/tail pointer to hw. 必须在之前调用过access_begin */
+void wireless_simu_hal_srng_access_end(struct wireless_simu *priv, struct hal_srng *srng)
+{
+	lockdep_assert_held(&srng->lock);
+
+	if (srng->flags & HAL_SRNG_FLAGS_LMAC_RING)
+	{
+		/* 具有 lmac ring 的 host 端 ring 只需要更新 dma malloc 的区域中对应的区域即可 */
+		if (srng->ring_dir == HAL_SRNG_DIR_SRC)
+		{
+			srng->u.src_ring.last_tp = *(volatile u32 *)srng->u.src_ring.tp_addr;
+			*srng->u.src_ring.hp_addr = srng->u.src_ring.hp;
+		}
+		else
+		{
+			srng->u.dst_ring.last_hp = *srng->u.dst_ring.hp_addr;
+			*srng->u.dst_ring.tp_addr = srng->u.dst_ring.tp;
+		}
+	}
+	else
+	{
+		if (srng->ring_dir == HAL_SRNG_DIR_SRC)
+		{
+			srng->u.src_ring.last_tp = *(volatile u32 *)srng->u.src_ring.tp_addr;
+			wireless_hif_write32(priv, (unsigned long)srng->u.src_ring.hp_addr - (unsigned long)priv->mmio_addr, srng->u.src_ring.hp);
+		}
+		else
+		{
+			srng->u.dst_ring.last_hp = *srng->u.dst_ring.hp_addr;
+			wireless_hif_write32(priv, (unsigned long)srng->u.dst_ring.tp_addr - (unsigned long)priv->mmio_addr, srng->u.dst_ring.tp);
+		}
+	}
+
+	srng->timestamp = jiffies;
+}
+
+u32 *wireless_simu_hal_srng_src_get_next_reaped(struct wireless_simu *priv, struct hal_srng *srng)
+{
+	u32 *desc;
+
+	lockdep_assert_held(&srng->lock);
+
+	if (srng->u.src_ring.hp == srng->u.src_ring.reap_hp)
+	{
+		return NULL;
+	}
+
+	desc = srng->ring_base_vaddr + srng->u.src_ring.hp;
+	srng->u.src_ring.hp = (srng->u.src_ring.hp + srng->entry_size) %
+						  srng->ring_size;
+
+	return desc;
 }
 
 /******* srng test ********/
@@ -755,6 +851,91 @@ static int hal_srng_test_init_ring(struct wireless_simu *priv, struct srng_test_
 	return 0;
 }
 
+void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *skb, u32 id, u8 byte_swap_data)
+{
+	struct hal_test_sw2hw *desc = buf;
+	dma_addr_t paddr = WIRELESS_SIMU_SKB_CB(skb)->paddr;
+
+	desc->buffer_addr_low = paddr & HAL_ADDR_LSB_REG_MASK;
+	desc->buffer_addr_info = FIELD_PREP(GENMASK(7, 0), ((u64)paddr >> HAL_ADDR_MSB_REG_SHIFT)) |
+							 FIELD_PREP(BIT(9), byte_swap_data) |
+							 FIELD_PREP(BIT(11), 0) |
+							 FIELD_PREP(GENMASK(31, 16), skb->len);
+	desc->meta_info = FIELD_PREP(GENMASK(15, 0), id);
+}
+
+// 专用于srng_test的发送函数，对于其他发送函数需要将模块整合进priv中，对于st来说就直接传过来了
+int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff *skb, u8 pipe_id, u16 transfer_id)
+{
+	struct srng_test_pipe *pipe = &st->pipes[pipe_id];
+	struct hal_srng *srng;
+	u32 *desc;
+	unsigned int write_index, sw_index;
+	unsigned int nentries_mask;
+	int ret = 0;
+	u8 byte_swap_data = 0; // 大端置 1
+	int num_used;
+
+	/* 对于禁用中断的情景，需要对ring进行遍历来处理已发送完成的entry */
+	if (srng->flags | CE_ATTR_DIS_INTR)
+	{
+		spin_lock(&st->srng_test_lock);
+
+		write_index = pipe->src_ring->write_index;
+		sw_index = pipe->src_ring->sw_index;
+
+		if (write_index >= sw_index)
+			num_used = write_index - sw_index;
+		else
+			num_used = pipe->src_ring->nentries - sw_index + write_index;
+
+		spin_unlock_bh(&st->srng_test_lock);
+	}
+
+	spin_lock(&st->srng_test_lock);
+
+	write_index = pipe->src_ring->write_index;
+	nentries_mask = pipe->src_ring->nentries_mask;
+
+	srng = &st->priv->hal.srng_list[pipe->src_ring->hal_ring_id];
+
+	spin_lock(&srng->lock);
+
+	wireless_simu_hal_srng_access_begin(st->priv, srng);
+
+	if (unlikely(wireless_simu_hal_srng_src_num_free(st->priv, srng, false) < 1))
+	{
+		wireless_simu_hal_srng_access_end(st->priv, srng);
+		ret = -ENOBUFS;
+		goto err_unlock;
+	}
+
+	desc = wireless_simu_hal_srng_src_get_next_reaped(st->priv, srng);
+	if (!desc)
+	{
+		wireless_simu_hal_srng_access_end(st->priv, srng);
+		ret = -ENOBUFS;
+		goto err_unlock;
+	}
+
+	wireless_simu_hal_srng_test_src_set_desc(desc, skb, transfer_id, byte_swap_data);
+
+	pipe->src_ring->skb[write_index] = skb;
+	pipe->src_ring->write_index = (((write_index) + 1) & (nentries_mask)); // 本质上这是一个取模运算，由于nentries_mask 为 nentries 的总数量 - 1 nentries 为 2 的 指数倍(pow of 2)
+
+	wireless_simu_hal_srng_access_end(st->priv, srng);
+
+	spin_unlock_bh(&srng->lock);
+	spin_unlock_bh(&st->srng_test_lock);
+
+	return 0;
+
+err_unlock:
+	spin_unlock_bh(&srng->lock);
+	spin_unlock_bh(&st->srng_test_lock);
+	return ret;
+}
+
 void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 {
 	pr_info("%s : srng test start \n", WIRELESS_SIMU_DEVICE_NAME);
@@ -816,14 +997,64 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 		}
 	}
 
-	// 读写操作
+	/* 读写操作 */
+
+	/* 准备数据 */
+
+	int data_size = 50;
+	void *data = kmalloc(data_size, GFP_KERNEL);
+	if (!data)
+	{
+		pr_err("%s : srng test data isnull \n", WIRELESS_SIMU_DEVICE_NAME);
+		goto err_clear_pipes;
+	}
+	memset(data, 7, data_size);
+
+	/* 转移数据至skb */
+
+	struct sk_buff *skb;
+	int round_len = round_up(data_size, 4);
+	skb = dev_alloc_skb(round_len);
+	if (!skb)
+	{
+		pr_err("%s : srng test skb alloc err \n", WIRELESS_SIMU_DEVICE_NAME);
+	}
+	memcpy(skb->data, data, data_size);
+
+	/* dma 转换 */
+	dma_addr_t skb_paddr; // 在ath11k中paddr要存放在skb_cb之中
+	skb_paddr = dma_map_single(&priv->pci_dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
+	ret = dma_mapping_error(&priv->pci_dev->dev, skb_paddr);
+	if (ret)
+	{
+		pr_err("%s : srng test dma err \n", WIRELESS_SIMU_DEVICE_NAME);
+		goto err_free_data;
+	}
+	struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
+	skb_cb->paddr = skb_paddr;
+
+	/* 数据传输 */
+	ret = wireless_simu_hal_srng_test_send(&st, skb, 0, 0);
+	if (ret)
+	{
+		pr_err("%s : srng test send data err \n", WIRELESS_SIMU_DEVICE_NAME);
+		goto err_free_dma;
+	}
+
+	msleep(100);
 
 	/* end free malloc */
+	dma_unmap_single(&priv->pci_dev->dev, skb_paddr, skb->len, DMA_TO_DEVICE);
+	kfree(data);
 	hal_srng_test_free_pipes(&st);
 	kfree(st.host_config);
 	pr_info("%s : srng test end \n", WIRELESS_SIMU_DEVICE_NAME);
 	return;
 
+err_free_dma:
+	dma_unmap_single(&priv->pci_dev->dev, skb_paddr, skb->len, DMA_TO_DEVICE);
+err_free_data:
+	kfree(data);
 err_clear_pipes:
 	hal_srng_test_free_pipes(&st);
 err_clear_config:
