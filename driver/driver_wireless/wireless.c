@@ -204,7 +204,7 @@ static int wireless_simu_pci_irq_init(struct wireless_simu *priv)
     int irq = pci_irq_vector(priv->pci_dev, 0);
     pr_info("%s : pci irq vector num is %d \n", WIRELESS_SIMU_DEVICE_NAME, irq);
     ret = request_irq(irq, wireless_simu_irq_handler, IRQF_SHARED, "wireless_simu_irq", priv->pci_dev);
-    priv->irq_vectors_num = num_vectors;
+    priv->irq_vectors_num = irq;
 
     return 0;
 }
@@ -303,7 +303,7 @@ static void wireless_simu_pci_remove(struct pci_dev *pdev)
         // wireless_tx_ring_exit(priv);
         // wireless_rx_ring_exit(priv);
         pci_iounmap(pdev, priv->mmio_addr);
-        // free_irq(priv->irq_vectors_num, priv->pci_dev);
+        free_irq(priv->irq_vectors_num, priv->pci_dev);
         pci_free_irq_vectors(pdev);
         pci_release_regions(pdev);
         pci_disable_device(pdev);
