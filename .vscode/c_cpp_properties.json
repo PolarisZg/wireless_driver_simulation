@@ -15,7 +15,8 @@
                 "CONFIG_HAS_DMA",
                 "CONFIG_NL80211_TESTMODE",
                 "CONFIG_PCI_MSI",
-                "CONFIG_PCI"
+                "CONFIG_PCI",
+                "CONFIG_LOCKDEP"
             ],
             "cStandard": "c17",
             "cppStandard": "c++14",
