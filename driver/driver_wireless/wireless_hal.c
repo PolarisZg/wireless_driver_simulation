@@ -347,11 +347,18 @@ int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type 
 	spin_lock_init(&srng->lock);
 	lockdep_set_class(&srng->lock, hal->srng_key + ring_id);
 
-	// srng->hwreg_base 的初始化，该处和硬件设计强相关，需特别注意寄存器的功能
-	for (int i = 0; i < HAL_SRNG_NUM_REG_GRP; i++)
-	{
-		srng->hwreg_base[i] = srng_config->reg_start[i] + (ring_num * srng_config->reg_size[i]);
-	}
+	// srng->hwreg_base 的初始化，该处和硬件设计强相关，需特别注意寄存器的地址和功能的对应
+	/* 
+	 * |-------- 16bit --------|---- 8 bit ----|- 1 bit -|--- 5 bit ---|- 2 bit -|
+	 * |          0001         |    ring_id    |  grp    |    reg      | 4 char  |*/
+	srng->hwreg_base[HAL_SRNG_REG_GRP_R0] = (HAL_SRNG_REG_BASE | (ring_id << 8) | (HAL_SRNG_REG_GRP_R0 << 7));
+	srng->hwreg_base[HAL_SRNG_REG_GRP_R2] = (HAL_SRNG_REG_BASE | (ring_id << 8) | (HAL_SRNG_REG_GRP_R2 << 7));
+
+	// for (int i = 0; i < HAL_SRNG_NUM_REG_GRP; i++)
+	// {
+	// 	srng->hwreg_base[i] = srng_config->reg_start[i] + (ring_num * srng_config->reg_size[i]);
+	// }
+	
 	reg_base = srng->hwreg_base[HAL_SRNG_REG_GRP_R2];
 
 	// 此处 << 2 是因为entrysize以 32 bit为单位
@@ -420,7 +427,7 @@ int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type 
 
 static int hal_srng_create_config(struct wireless_simu_hal *hal)
 {
-	struct hal_srng_config *s;
+	// struct hal_srng_config *s;
 	hal->srng_config = kmemdup(hw_srng_config_template, sizeof(hw_srng_config_template), GFP_KERNEL);
 
 	if (!hal->srng_config)
@@ -428,11 +435,13 @@ static int hal_srng_create_config(struct wireless_simu_hal *hal)
 		return -ENOMEM;
 	}
 
-	s = &hal->srng_config[HAL_TEST_SRNG];
-	s->reg_start[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP;		  // srng配置信息 【寄存器组】 的基地址, 这里面存放的是相对于mmio的偏移地址
-	s->reg_size[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP_R0_SIZE; // srng配置信息寄存器组中寄存器的数量
-	s->reg_start[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2;
-	s->reg_size[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2_SIZE;
+	// 根据我的对寄存器的设定，不需要对不同类型的srng的基地址进行初始化配置，只需要在wireless_simu_hal_srng_setup中得到ring_id后进行配置即可
+	// 当ring数量超过 256 时再来讨论优化的问题
+	// s = &hal->srng_config[HAL_TEST_SRNG];
+	// s->reg_start[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP;		  // srng配置信息 【寄存器组】 的基地址, 这里面存放的是相对于mmio的偏移地址
+	// s->reg_size[HAL_SRNG_REG_GRP_R0] = HAL_TEST_SRNG_REG_GRP_R0_SIZE; // srng配置信息寄存器组中寄存器的数量
+	// s->reg_start[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2;
+	// s->reg_size[HAL_SRNG_REG_GRP_R2] = HAL_TEST_SRNG_REG_GRP_R2_SIZE;
 
 	// 后续就是对不同type的srng载入不同的寄存器地址
 

@@ -3,19 +3,6 @@
 
 #include "wireless.h"
 
-/* register */
-#define HAL_SRNG_REG_R_GROUP_OFFSET(x) (x << 2)
-#define HAL_SRNG_REG_R0_GROUP_SIZE 8
-#define HAL_SRNG_REG_R2_GROUP_SIZE 2
-
-#define SRNG_TEST_PIPE_COUNT_MAX 1 // ring 数量
-#define HAL_TEST_SRNG_REG_GRP 0x00010000 // 基地址
-#define HAL_TEST_SRNG_REG_GRP_R0 HAL_TEST_SRNG_REG_GRP
-#define HAL_TEST_SRNG_REG_GRP_R0_SIZE ((SRNG_TEST_PIPE_COUNT_MAX * HAL_SRNG_REG_R0_GROUP_SIZE) << 2) 
-#define HAL_TEST_SRNG_REG_GRP_R2 (HAL_TEST_SRNG_REG_GRP_R0 + HAL_TEST_SRNG_REG_GRP_R0_SIZE)
-#define HAL_TEST_SRNG_REG_GRP_R2_SIZE ((SRNG_TEST_PIPE_COUNT_MAX * HAL_SRNG_REG_R2_GROUP_SIZE) << 2)
-
-
 /* TCL ring field mask and offset */
 #define HAL_TCL1_RING_BASE_MSB_RING_SIZE		GENMASK(27, 8)
 #define HAL_TCL1_RING_BASE_MSB_RING_BASE_ADDR_MSB	GENMASK(7, 0)
@@ -367,6 +354,30 @@ enum hal_srng_ring_id
                               HAL_SRNG_NUM_LMAC_RINGS)
 
 #define HAL_SHADOW_NUM_REGS 36
+
+/* register hal srng */
+#define HAL_SRNG_REG_R_GROUP_OFFSET(x) (x << 2)
+#define HAL_SRNG_REG_R0_GROUP_SIZE 8
+#define HAL_SRNG_REG_R2_GROUP_SIZE 2
+
+/* 我对寄存器的管理是这样的：
+ * 寄存器共占用 4 * 8 = 32 bit的地址
+ * 高 16 bit 用来区分寄存器组好，例如 hal_srng 寄存器组的编号为 0x00010000
+ * 低 16 bit 用于寄存器组内分配功能；
+ * 
+ * 在 hal_srng 组中的低16bit进行如下分配：
+ * 高 8 bit 用来表示 ring_id 共支持 256 个ring
+ * 低 8 bit 用来做每个ring的配置寄存器，每个寄存器大小为 4 char 占用 2bit 这样共有 64 个 32 bit的寄存器
+ */
+
+#define HAL_SRNG_REG_BASE 0x00010000 // hal_srng 寄存器组基地址
+
+#define SRNG_TEST_PIPE_COUNT_MAX 1 // ring 数量
+// #define HAL_TEST_SRNG_REG_GRP (HAL_SRNG_REG_BASE | (HAL_SRNG_RING_ID_TEST_SW2HW << 8)) 
+// #define HAL_TEST_SRNG_REG_GRP_R0 HAL_TEST_SRNG_REG_GRP
+// #define HAL_TEST_SRNG_REG_GRP_R0_SIZE ((SRNG_TEST_PIPE_COUNT_MAX * HAL_SRNG_REG_R0_GROUP_SIZE) << 2) 
+// #define HAL_TEST_SRNG_REG_GRP_R2 (HAL_TEST_SRNG_REG_GRP_R0 + HAL_TEST_SRNG_REG_GRP_R0_SIZE)
+// #define HAL_TEST_SRNG_REG_GRP_R2_SIZE ((SRNG_TEST_PIPE_COUNT_MAX * HAL_SRNG_REG_R2_GROUP_SIZE) << 2)
 
 /* HW SRNG configuration table */
 struct hal_srng_config
