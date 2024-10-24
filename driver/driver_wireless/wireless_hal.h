@@ -436,7 +436,8 @@ struct hal_test_sw2hw{
     u32 buffer_addr_low;
 	u32 buffer_addr_info; /* %HAL_CE_SRC_DESC_ADDR_INFO_ */
 	u32 meta_info; /* %HAL_CE_SRC_DESC_META_INFO_ */
-	u32 flags; /* %HAL_CE_SRC_DESC_FLAGS_ */
+    u32 write_index;
+    u32 flags; /* %HAL_CE_SRC_DESC_FLAGS_ */
 }__packed;
 
 // 根据params调整hal_srng中对应ring_num的ring的详细内容

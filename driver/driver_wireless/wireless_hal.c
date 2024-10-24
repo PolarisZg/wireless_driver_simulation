@@ -860,7 +860,7 @@ static int hal_srng_test_init_ring(struct wireless_simu *priv, struct srng_test_
 	return 0;
 }
 
-static void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *skb, u32 id, u8 byte_swap_data)
+static void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *skb, u32 id, u8 byte_swap_data, unsigned int write_index)
 {
 	struct hal_test_sw2hw *desc = buf;
 	dma_addr_t paddr = WIRELESS_SIMU_SKB_CB(skb)->paddr;
@@ -871,6 +871,7 @@ static void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *
 							 FIELD_PREP(BIT(11), 0) |
 							 FIELD_PREP(GENMASK(31, 16), skb->len);
 	desc->meta_info = FIELD_PREP(GENMASK(15, 0), id);
+	desc->write_index = write_index;
 }
 
 // 专用于srng_test的发送函数，对于其他发送函数需要将模块整合进priv中，对于st来说就直接传过来了
@@ -927,7 +928,7 @@ static int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff
 		goto err_unlock;
 	}
 
-	wireless_simu_hal_srng_test_src_set_desc(desc, skb, transfer_id, byte_swap_data);
+	wireless_simu_hal_srng_test_src_set_desc(desc, skb, transfer_id, byte_swap_data, write_index);
 
 	pipe->src_ring->skb[write_index] = skb;
 	pipe->src_ring->write_index = (((write_index) + 1) & (nentries_mask)); // 本质上这是一个取模运算，由于nentries_mask 为 nentries 的总数量 - 1 nentries 为 2 的 指数倍(pow of 2)
