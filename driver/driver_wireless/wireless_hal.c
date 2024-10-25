@@ -348,7 +348,7 @@ int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type 
 	lockdep_set_class(&srng->lock, hal->srng_key + ring_id);
 
 	// srng->hwreg_base 的初始化，该处和硬件设计强相关，需特别注意寄存器的地址和功能的对应
-	/* 
+	/*
 	 * |-------- 16bit --------|---- 8 bit ----|- 1 bit -|--- 5 bit ---|- 2 bit -|
 	 * |          0001         |    ring_id    |  grp    |    reg      | 4 char  |*/
 	srng->hwreg_base[HAL_SRNG_REG_GRP_R0] = (HAL_SRNG_REG_BASE | (ring_id << 8) | (HAL_SRNG_REG_GRP_R0 << 7));
@@ -358,7 +358,7 @@ int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type 
 	// {
 	// 	srng->hwreg_base[i] = srng_config->reg_start[i] + (ring_num * srng_config->reg_size[i]);
 	// }
-	
+
 	reg_base = srng->hwreg_base[HAL_SRNG_REG_GRP_R2];
 
 	// 此处 << 2 是因为entrysize以 32 bit为单位
@@ -755,6 +755,7 @@ static struct srng_test_ring *hal_srng_test_alloc_ring(struct wireless_simu *pri
 		kfree(ring);
 		return ERR_PTR(-ENOMEM);
 	}
+	memset(ring->base_addr_owner_space_unaligned, 0, nentries * desc_sz + SRNG_TEST_DESC_RING_ALIGN);
 
 	ring->base_addr_test_space_unaligned = base_addr;
 
@@ -872,6 +873,7 @@ static void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *
 							 FIELD_PREP(GENMASK(31, 16), skb->len);
 	desc->meta_info = FIELD_PREP(GENMASK(15, 0), id);
 	desc->write_index = write_index;
+	desc->flags = 0x114514ff;
 }
 
 // 专用于srng_test的发送函数，对于其他发送函数需要将模块整合进priv中，对于st来说就直接传过来了
@@ -929,6 +931,12 @@ static int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff
 	}
 
 	wireless_simu_hal_srng_test_src_set_desc(desc, skb, transfer_id, byte_swap_data, write_index);
+
+	// 打印测试一下desc
+	for (int count = 0; count < srng->entry_size; count++)
+	{
+		pr_info("%s : src desc data %d : %08x \n", WIRELESS_SIMU_DEVICE_NAME, count, *(uint32_t *)(desc + count));
+	}
 
 	pipe->src_ring->skb[write_index] = skb;
 	pipe->src_ring->write_index = (((write_index) + 1) & (nentries_mask)); // 本质上这是一个取模运算，由于nentries_mask 为 nentries 的总数量 - 1 nentries 为 2 的 指数倍(pow of 2)
@@ -1040,6 +1048,7 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 		pr_err("%s : srng test dma err \n", WIRELESS_SIMU_DEVICE_NAME);
 		goto err_free_data;
 	}
+	skb_put(skb, round_len);
 	struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
 	skb_cb->paddr = skb_paddr;
 	pr_info("%s : hal srng test data %llx paddr %d size %08x eg\n", WIRELESS_SIMU_DEVICE_NAME, skb_cb->paddr, skb->len, *(skb->data + 25));
