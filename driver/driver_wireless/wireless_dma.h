@@ -1,5 +1,7 @@
 #ifndef WIRELESS_SIMU_DMA
 #define WIRELESS_SIMU_DMA
+#define WIRELESS_SIMU_DMA_NOUSE
+#ifndef WIRELESS_SIMU_DMA_NOUSE
 
 #include <linux/pci.h>
 #include <linux/mod_devicetable.h>
@@ -57,4 +59,5 @@ wireless_rx_ring_exit(struct wireless_simu *priv);
 
 void wireless_simu_dma_test(struct wireless_simu *priv);
 
+#endif /*WIRELESS_SIMU_DMA_NOUSE*/
 #endif /*WIRELESS_SIMU_DMA*/

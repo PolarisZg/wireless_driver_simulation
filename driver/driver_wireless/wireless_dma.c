@@ -1,5 +1,6 @@
 #include "wireless_dma.h"
 
+#ifndef WIRELESS_SIMU_DMA_NOUSE
 enum wireless_simu_err_code wireless_simu_rx_ring_init(struct wireless_simu *priv)
 {
     pr_info("%s : rx ring init start \n", WIRELESS_SIMU_DEVICE_NAME);
@@ -222,3 +223,5 @@ void wireless_simu_dma_test(struct wireless_simu *priv)
 
     wireless_simu_dma_tx(priv, data, data_length);
 }
+
+#endif /*WIRELESS_SIMU_DMA_NOUSE*/
