@@ -215,6 +215,8 @@ struct hal_srng
 enum hal_ring_type
 {
     HAL_TEST_SRNG,
+    HAL_TEST_SRNG_DST,
+    HAL_TEST_SRNG_DST_STATUS,
     // HAL_REO_DST,
     // HAL_REO_EXCEPTION,
     // HAL_REO_REINJECT,
@@ -255,72 +257,80 @@ struct hal_srng_params
     /* Add more params as needed */
 };
 
+/*
+ * 如果一个模块会用同时用到src和dst，那么需要给该模块的dst分配的ring_id应该大于实际二者中用到的ring的和，src也一样；
+ * 即使会有ring_id的空置；
+ * 因此为了不使ring_id空置，应该将用到src和dst的模块切成两个，分别调用初始化ring
+ * 
+ */
 enum hal_srng_ring_id
 {
     HAL_SRNG_RING_ID_REO2SW1 = 0,
-    HAL_SRNG_RING_ID_REO2SW2,
-    HAL_SRNG_RING_ID_REO2SW3,
-    HAL_SRNG_RING_ID_REO2SW4,
-    HAL_SRNG_RING_ID_REO2TCL,
-    HAL_SRNG_RING_ID_SW2REO,
+    HAL_SRNG_RING_ID_TEST_DST_STATUS = 1,
+    // HAL_SRNG_RING_ID_REO2SW2,
+    // HAL_SRNG_RING_ID_REO2SW3,
+    // HAL_SRNG_RING_ID_REO2SW4,
+    // HAL_SRNG_RING_ID_REO2TCL,
+    // HAL_SRNG_RING_ID_SW2REO,
 
-    HAL_SRNG_RING_ID_REO_CMD = 8,
-    HAL_SRNG_RING_ID_REO_STATUS,
+    HAL_SRNG_RING_ID_TEST_DST = 8,
+    // HAL_SRNG_RING_ID_REO_CMD = 8,
+    // HAL_SRNG_RING_ID_REO_STATUS,
 
-    HAL_SRNG_RING_ID_SW2TCL1 = 16,
-    HAL_SRNG_RING_ID_SW2TCL2,
-    HAL_SRNG_RING_ID_SW2TCL3,
-    HAL_SRNG_RING_ID_SW2TCL4,
+    // HAL_SRNG_RING_ID_SW2TCL1 = 16,
+    // HAL_SRNG_RING_ID_SW2TCL2,
+    // HAL_SRNG_RING_ID_SW2TCL3,
+    // HAL_SRNG_RING_ID_SW2TCL4,
 
-    HAL_SRNG_RING_ID_SW2TCL_CMD = 24,
-    HAL_SRNG_RING_ID_TCL_STATUS,
+    // HAL_SRNG_RING_ID_SW2TCL_CMD = 24,
+    // HAL_SRNG_RING_ID_TCL_STATUS,
 
-    HAL_SRNG_RING_ID_CE0_SRC = 32,
-    HAL_SRNG_RING_ID_CE1_SRC,
-    HAL_SRNG_RING_ID_CE2_SRC,
-    HAL_SRNG_RING_ID_CE3_SRC,
-    HAL_SRNG_RING_ID_CE4_SRC,
-    HAL_SRNG_RING_ID_CE5_SRC,
-    HAL_SRNG_RING_ID_CE6_SRC,
-    HAL_SRNG_RING_ID_CE7_SRC,
-    HAL_SRNG_RING_ID_CE8_SRC,
-    HAL_SRNG_RING_ID_CE9_SRC,
-    HAL_SRNG_RING_ID_CE10_SRC,
-    HAL_SRNG_RING_ID_CE11_SRC,
+    // HAL_SRNG_RING_ID_CE0_SRC = 32,
+    // HAL_SRNG_RING_ID_CE1_SRC,
+    // HAL_SRNG_RING_ID_CE2_SRC,
+    // HAL_SRNG_RING_ID_CE3_SRC,
+    // HAL_SRNG_RING_ID_CE4_SRC,
+    // HAL_SRNG_RING_ID_CE5_SRC,
+    // HAL_SRNG_RING_ID_CE6_SRC,
+    // HAL_SRNG_RING_ID_CE7_SRC,
+    // HAL_SRNG_RING_ID_CE8_SRC,
+    // HAL_SRNG_RING_ID_CE9_SRC,
+    // HAL_SRNG_RING_ID_CE10_SRC,
+    // HAL_SRNG_RING_ID_CE11_SRC,
 
-    HAL_SRNG_RING_ID_CE0_DST = 56,
-    HAL_SRNG_RING_ID_CE1_DST,
-    HAL_SRNG_RING_ID_CE2_DST,
-    HAL_SRNG_RING_ID_CE3_DST,
-    HAL_SRNG_RING_ID_CE4_DST,
-    HAL_SRNG_RING_ID_CE5_DST,
-    HAL_SRNG_RING_ID_CE6_DST,
-    HAL_SRNG_RING_ID_CE7_DST,
-    HAL_SRNG_RING_ID_CE8_DST,
-    HAL_SRNG_RING_ID_CE9_DST,
-    HAL_SRNG_RING_ID_CE10_DST,
-    HAL_SRNG_RING_ID_CE11_DST,
+    // HAL_SRNG_RING_ID_CE0_DST = 56,
+    // HAL_SRNG_RING_ID_CE1_DST,
+    // HAL_SRNG_RING_ID_CE2_DST,
+    // HAL_SRNG_RING_ID_CE3_DST,
+    // HAL_SRNG_RING_ID_CE4_DST,
+    // HAL_SRNG_RING_ID_CE5_DST,
+    // HAL_SRNG_RING_ID_CE6_DST,
+    // HAL_SRNG_RING_ID_CE7_DST,
+    // HAL_SRNG_RING_ID_CE8_DST,
+    // HAL_SRNG_RING_ID_CE9_DST,
+    // HAL_SRNG_RING_ID_CE10_DST,
+    // HAL_SRNG_RING_ID_CE11_DST,
 
-    HAL_SRNG_RING_ID_CE0_DST_STATUS = 80,
-    HAL_SRNG_RING_ID_CE1_DST_STATUS,
-    HAL_SRNG_RING_ID_CE2_DST_STATUS,
-    HAL_SRNG_RING_ID_CE3_DST_STATUS,
-    HAL_SRNG_RING_ID_CE4_DST_STATUS,
-    HAL_SRNG_RING_ID_CE5_DST_STATUS,
-    HAL_SRNG_RING_ID_CE6_DST_STATUS,
-    HAL_SRNG_RING_ID_CE7_DST_STATUS,
-    HAL_SRNG_RING_ID_CE8_DST_STATUS,
-    HAL_SRNG_RING_ID_CE9_DST_STATUS,
-    HAL_SRNG_RING_ID_CE10_DST_STATUS,
-    HAL_SRNG_RING_ID_CE11_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE0_DST_STATUS = 80,
+    // HAL_SRNG_RING_ID_CE1_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE2_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE3_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE4_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE5_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE6_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE7_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE8_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE9_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE10_DST_STATUS,
+    // HAL_SRNG_RING_ID_CE11_DST_STATUS,
 
     HAL_SRNG_RING_ID_WBM_IDLE_LINK = 104,
-    HAL_SRNG_RING_ID_WBM_SW_RELEASE,
-    HAL_SRNG_RING_ID_WBM2SW0_RELEASE,
-    HAL_SRNG_RING_ID_WBM2SW1_RELEASE,
-    HAL_SRNG_RING_ID_WBM2SW2_RELEASE,
-    HAL_SRNG_RING_ID_WBM2SW3_RELEASE,
-    HAL_SRNG_RING_ID_WBM2SW4_RELEASE,
+    // HAL_SRNG_RING_ID_WBM_SW_RELEASE,
+    // HAL_SRNG_RING_ID_WBM2SW0_RELEASE,
+    // HAL_SRNG_RING_ID_WBM2SW1_RELEASE,
+    // HAL_SRNG_RING_ID_WBM2SW2_RELEASE,
+    // HAL_SRNG_RING_ID_WBM2SW3_RELEASE,
+    // HAL_SRNG_RING_ID_WBM2SW4_RELEASE,
 
     HAL_SRNG_RING_ID_TEST_SW2HW = 125,
 
@@ -440,6 +450,19 @@ struct hal_test_sw2hw{
     u32 flags; /* %HAL_CE_SRC_DESC_FLAGS_ */
 }__packed;
 
+/* 设备上传至驱动的数据 */
+struct hal_test_dst_status{
+    u32 buffer_length;
+    u32 flag;
+}__packed;
+
+/* 驱动下发至设备的数据 */
+struct hal_test_dst{
+    u32 buffer_addr_low;
+    u32 buffer_addr_info;
+    u32 flag; 
+}__packed;
+
 // 根据params调整hal_srng中对应ring_num的ring的详细内容
 int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type type,
                                  int ring_num, int mac_id,
@@ -464,5 +487,132 @@ int wireless_simu_hal_srng_src_num_free(struct wireless_simu *priv, struct hal_s
 void wireless_simu_hal_srng_access_end(struct wireless_simu *priv, struct hal_srng *srng);
 
 u32 *wireless_simu_hal_srng_src_get_next_reaped(struct wireless_simu *priv, struct hal_srng *srng);
+
+u32 *wireless_simu_hal_srng_src_get_next_entry(struct wireless_simu *priv, struct hal_srng *srng);
+
+u32 *wireless_simu_hal_srng_dst_get_next_entry(struct wireless_simu *priv, struct hal_srng *srng);
+
+/* dst test module */
+int wireless_simu_hal_srng_dst_test_init(struct wireless_simu *priv);
+
+// /* dst irq module */
+// void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, int pipe_id);
+
+/* srng test */
+#define SRNG_TEST_DESC_RING_ALIGN 8
+
+struct srng_test_attr
+{
+	unsigned int flags;
+
+	/* src entry 数量 */
+	unsigned int src_nentries;
+
+	/* 每一个 entry 的最大大小, 虽然名为src, 但dst的也可以用这个参数来设定entry大小限制 */
+	unsigned int src_sz_max;
+
+	/* dst entry 数量 */
+	unsigned int dest_nentries;
+
+	void (*recv_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+	void (*send_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+};
+
+static const struct srng_test_attr srng_test_configs[] = {
+	{
+		.flags = 0,
+		.src_nentries = 32,
+		.src_sz_max = 2048,
+		.dest_nentries = 0,
+	},
+};
+
+/* 写这个的目的是将仅含有含有dst的模块与仅含有src的模块分离开进行初始化 */
+static const struct srng_test_attr srng_test_dst_configs[] = {
+	{
+		.flags = 0,
+		.dest_nentries = 32,
+		.src_sz_max = 2048, // 会根据这个值进行rx数据的dma分配
+		.src_nentries = 0,
+	},
+};
+
+struct srng_test_ring
+{
+	/* ring 中 entries 数量 */
+	unsigned int nentries;
+	unsigned int nentries_mask;
+
+	/* 对 src 环，该 index 指向最后一个被放入 ring 的 descriptor ;
+	 *
+	 * 对 dst 环， 该index 指向下一个需要被处理的entry;
+	 * */
+	unsigned int sw_index;
+
+	unsigned int write_index;
+
+	/* 为 entries alloc 的 memory 空间*/
+	/* 逻辑内存地址 */
+	void *base_addr_owner_space_unaligned;
+	/* 物理内存地址 */
+	dma_addr_t base_addr_test_space_unaligned;
+    
+    /* dma malloc size */
+    size_t dma_size;
+
+	/* 经由内存对齐之后的，为 entries alloc 的 memory 地址
+	 * 这就产生了问题，当使用ALIGN进行对齐的时候，一方面会导致void *被修改，使整个内存空间变少，另一个dmaaddr和void *未必有关联，那万一一个改了另一个没改不就发生冲突了吗？*/
+	/* 逻辑内存地址 */
+	void *base_addr_owner_space;
+	/* 物理内存地址 */
+	dma_addr_t base_addr_test_space;
+
+	/* hal ring id */
+	u32 hal_ring_id;
+
+	/* keep last */
+	struct sk_buff *skb[];
+};
+
+struct srng_test_pipe
+{
+	struct wireless_simu *priv;
+	u16 pipe_num;
+	unsigned int attr_flags;
+	unsigned int buf_sz;
+	unsigned int rx_buf_needed;
+
+	void (*recv_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+	void (*send_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+
+	struct tasklet_struct intr_tq;
+
+    /* 向hw传输数据 */
+	struct srng_test_ring *src_ring;
+	
+    /* 填充sw中申请的dma地址 */
+    struct srng_test_ring *dst_ring;
+	
+    /* 填充有rx的数据 */
+    struct srng_test_ring *status_ring;
+
+	u64 timestamp;
+};
+
+struct srng_test
+{
+	struct wireless_simu *priv;
+    
+    /* 下方pipes 的数量 */
+    int pipes_count;
+    
+	struct srng_test_pipe pipes[SRNG_TEST_PIPE_COUNT_MAX];
+	struct srng_test_attr *host_config;
+	spinlock_t srng_test_lock;
+
+    /* 超时处理
+     * pipe 的 dst 中空位不足时，使用该数据来保证过一段时间后重试 */
+    struct timer_list rx_replenish_retry;
+};
 
 #endif

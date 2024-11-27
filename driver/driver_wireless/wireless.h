@@ -30,8 +30,10 @@
 #include "wireless_ce.h"
 #include "wireless_hal.h"
 #include "wireless_hif.h"
+#include "wireless_irq.h"
 
 #define WIRELESS_SIMU_DEVICE_NAME "wirelesssimu"
+#define WIRELESS_SIMU_RX_POST_RETRY_JIFFIES 50
 #define PCI_VENDOR_ID_QEMU 0x1234
 #define PCI_DEVICE_ID_WIRELESS_SIMU 0x1145
 #define WIRELESS_SIMU_BUFF_SIZE 0x100
@@ -59,6 +61,15 @@
 #define WIRELESS_REG_DMA_RX_RING_FLAG 0xE0
 #define WIRELESS_REG_IRQ_ENABLE 0xF0
 
+/* 硬件基础地址，基础寄存器的高16bit为全零 */
+#define HAL_BASIC_BASE_REG 0x00000000
+#define HAL_BASIC_REG(n) ((n << 2) & 0x0000ffff)
+enum HAL_ENUM_REG_BASIC{
+    WIRELESS_REG_BASIC_IRQ_ENABLE = 1,
+    WIRELESS_REG_BASIC_IRQ_STATUS,
+    
+};
+
 #define SETBIT(x, y) (x |= 1 << y)
 #define CLBIT(x, y) (x &= ~(1 << y))
 
@@ -72,17 +83,6 @@
 #define WIRELESS_TX_RING_BUF_IS_USING 0
 
 #define WIRELESS_MAX_NUM_VIF 4
-
-enum Wireless_DMA_IRQ_STATUS
-{
-    WIRELESS_IRQ_TEST = 0,
-    WIRELESS_IRQ_DNA_MEM_TO_DEVICE_END,
-    WIRELESS_IRQ_DMA_DELALL_END,
-    WIRELESS_IRQ_RX_START,
-    WIRELESS_IRQ_DMA_DEVICE_TO_MEM_END,
-    WIRELESS_IRQ_MAC80211_TX_COMPLETE,
-    WIRELESS_IRQ_MAC80211_RX
-};
 
 enum Wireless_LongTimeEvent
 {
@@ -206,6 +206,9 @@ struct wireless_simu
 
     // device flag 反正最后只会初始化一个设备，写道这里也没差
     unsigned long dev_flag;
+
+    // dst_srng_test
+    struct srng_test st_dst;
 
     bool stop;
 };
