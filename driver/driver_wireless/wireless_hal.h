@@ -495,6 +495,12 @@ u32 *wireless_simu_hal_srng_dst_get_next_entry(struct wireless_simu *priv, struc
 /* dst test module */
 int wireless_simu_hal_srng_dst_test_init(struct wireless_simu *priv);
 
+/* 删除使用dst ring 的模块
+ *
+ * 需要注意到驱动的各个组成部分必须按顺序结束，否则会出现某部分被结束掉之后，其他部分被结束掉之前，出现访问错误
+ */
+void wireless_simu_hal_srng_dst_test_deinit(struct wireless_simu *priv);
+
 // /* dst irq module */
 // void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, int pipe_id);
 

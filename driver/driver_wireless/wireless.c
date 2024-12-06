@@ -259,6 +259,11 @@ End:
     return ret;
 }
 
+/* 驱动删除函数 
+ * 
+ * 需要注意到驱动的各个组件需要按一定的顺序删除，否则会出现访问错误
+ * 可以先构造依赖图，然后按顺序删除各个组件
+ * 如果A模块调用了B模块的函数，使用了B模块提供的属性或空间，那么认为B模块是A模块的下级模块*/
 static void wireless_simu_pci_remove(struct pci_dev *pdev)
 {
     pr_info("%s : pci device remove start \n", WIRELESS_SIMU_DEVICE_NAME);
@@ -266,18 +271,40 @@ static void wireless_simu_pci_remove(struct pci_dev *pdev)
     if (priv)
     {
         priv->stop = true;
-        wireless_mac80211_core_remove(priv);
-        wireless_simu_hal_srng_deinit(priv);
-        destroy_workqueue(priv->workqueue_aux);
-        // iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_EVENT);
-        wireless_hif_write32(priv, HAL_BASIC_REG(WIRELESS_REG_BASIC_IRQ_ENABLE), 0);
-        // iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
 
-        // wireless_tx_ring_exit(priv);
-        // wireless_rx_ring_exit(priv);
-        pci_iounmap(pdev, priv->mmio_addr);
+        /* 停 mac80211 子系统*/
+        wireless_mac80211_core_remove(priv);
+
+        /* 停掉中断系统
+         * 
+         * 保证之后不会再有硬件中断触发驱动中的行为
+         * */
         free_irq(priv->irq_vectors_num, priv->pci_dev);
         pci_free_irq_vectors(pdev);
+        wireless_hif_write32(priv, HAL_BASIC_REG(WIRELESS_REG_BASIC_IRQ_ENABLE), 0);
+        
+        destroy_workqueue(priv->workqueue_aux);
+        // iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_EVENT);
+        // iowrite32(0x00, priv->mmio_addr + WIRELESS_REG_IRQ_ENABLE);
+        // wireless_tx_ring_exit(priv);
+        // wireless_rx_ring_exit(priv);
+
+        /* 释放使用ring的各个模块 
+         * 
+         * 之后再有使用ring的模块，会发生错误*/
+        wireless_simu_hal_srng_dst_test_deinit(priv);
+        
+        /* 释放 srng ring 子系统空间
+         *
+         * 之后不应该出现任何对ring的访问
+         * */
+        wireless_simu_hal_srng_deinit(priv);
+
+        /* 释放 mmio 空间 
+         * 
+         * 之后不能出现任何读写寄存器的行为 */
+        pci_iounmap(pdev, priv->mmio_addr);
+
         pci_release_regions(pdev);
         pci_disable_device(pdev);
         kfree(priv->tx_ring.tx_list);
