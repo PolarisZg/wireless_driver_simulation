@@ -12,6 +12,7 @@ irqreturn_t wireless_simu_irq_handler(int irq, void *dev)
     {
     case WIRELESS_SIMU_IRQ_STATU_SRNG_DST_DMA_TEST_RING_0:
         tasklet_schedule(&priv->st_dst.pipes[0].intr_tq);
+        // pr_info("%s : interrupt dst sche end \n", WIRELESS_SIMU_DEVICE_NAME);
         break;
     default:
         break;

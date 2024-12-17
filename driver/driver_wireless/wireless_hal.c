@@ -351,8 +351,8 @@ static void hal_srng_dst_hw_init(struct wireless_simu *priv, struct hal_srng *sr
 	hp_addr = hal->rdp.paddr +
 			  ((unsigned long)srng->u.dst_ring.hp_addr -
 			   (unsigned long)hal->rdp.vaddr);
-	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(4), hp_addr & HAL_ADDR_LSB_REG_MASK);
-	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(5), hp_addr >> HAL_ADDR_MSB_REG_SHIFT);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(5), hp_addr & HAL_ADDR_LSB_REG_MASK);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(6), hp_addr >> HAL_ADDR_MSB_REG_SHIFT);
 
 	// 初始化底部的hp
 	reg_base = srng->hwreg_base[HAL_SRNG_REG_GRP_R2];
@@ -370,7 +370,7 @@ static void hal_srng_dst_hw_init(struct wireless_simu *priv, struct hal_srng *sr
 	if (srng->flags & HAL_SRNG_FLAGS_MSI_SWAP)
 		val |= HAL_REO1_RING_MISC_MSI_SWAP;
 	val |= HAL_REO1_RING_MISC_SRNG_ENABLE;
-	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(6), val);
+	wireless_hif_write32(priv, reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(7), val);
 }
 
 static void hal_srng_hw_init(struct wireless_simu *priv, struct hal_srng *srng)
@@ -478,7 +478,9 @@ int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type 
 		}
 		else
 		{
-			srng->u.dst_ring.tp_addr = (u32 *)((unsigned long)priv->mmio_addr + reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(1));
+			// srng->u.dst_ring.tp_addr = (u32 *)((unsigned long)priv->mmio_addr + reg_base + HAL_SRNG_REG_R_GROUP_OFFSET(1));
+			/* 上一行使用了一个offset来区分dst和src方向，但实际上并不需要这样的区分，device中能够根据ring_id判断某个ring是dst还是src*/
+			srng->u.dst_ring.tp_addr = (u32 *)((unsigned long)priv->mmio_addr + reg_base);
 			pr_info("%s : srng setup %d type %d ring num tp_addr %lx \n", WIRELESS_SIMU_DEVICE_NAME,
 					type, ring_id, (unsigned long)srng->u.dst_ring.tp_addr - (unsigned long)priv->mmio_addr);
 		}
@@ -1005,40 +1007,36 @@ static int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff
 
 	if (unlikely(wireless_simu_hal_srng_src_num_free(st->priv, srng, false) < 1))
 	{
-		wireless_simu_hal_srng_access_end(st->priv, srng);
 		ret = -ENOBUFS;
-		goto err_unlock;
+		pr_err("%s : err srng %08x no free entry \n", WIRELESS_SIMU_DEVICE_NAME, srng->ring_id);
+		goto exit;
 	}
 
-	desc = wireless_simu_hal_srng_src_get_next_reaped(st->priv, srng);
+	desc = wireless_simu_hal_srng_src_get_next_entry(st->priv, srng);
 	if (!desc)
 	{
-		wireless_simu_hal_srng_access_end(st->priv, srng);
 		ret = -ENOBUFS;
-		goto err_unlock;
+		pr_err("%s : err srng %08x no next entry \n", WIRELESS_SIMU_DEVICE_NAME, srng->ring_id);
+		goto exit;
 	}
 
 	wireless_simu_hal_srng_test_src_set_desc(desc, skb, transfer_id, byte_swap_data, write_index);
 
-	// 打印测试一下desc
-	for (int count = 0; count < srng->entry_size; count++)
-	{
-		pr_info("%s : src desc data %d : %08x \n", WIRELESS_SIMU_DEVICE_NAME, count, *(uint32_t *)(desc + count));
-	}
-
 	pipe->src_ring->skb[write_index] = skb;
-	pipe->src_ring->write_index = (((write_index) + 1) & (nentries_mask)); // 本质上这是一个取模运算，由于nentries_mask 为 nentries 的总数量 - 1 nentries 为 2 的 指数倍(pow of 2)
 
+	/* 本质上这是一个取模运算，
+	 * nentries_mask 为 nentries 的总数量 - 1 
+	 * nentries 为 2 的 指数倍(pow of 2)
+	*/
+	pipe->src_ring->write_index = (((write_index) + 1) & (nentries_mask)); 
+
+exit:
 	wireless_simu_hal_srng_access_end(st->priv, srng);
 
 	spin_unlock_bh(&srng->lock);
-	spin_unlock_bh(&st->srng_test_lock);
 
-	return 0;
-
-err_unlock:
-	spin_unlock_bh(&srng->lock);
 	spin_unlock_bh(&st->srng_test_lock);
+	
 	return ret;
 }
 
@@ -1106,24 +1104,24 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 	/* 读写操作 */
 
 	/* 准备数据 */
-
-	int data_size = 50;
+	int data_size = round_up(50, 4);
 	void *data = kmalloc(data_size, GFP_KERNEL);
 	if (!data)
 	{
 		pr_err("%s : srng test data isnull \n", WIRELESS_SIMU_DEVICE_NAME);
 		goto err_clear_pipes;
 	}
-	memset(data, 7, data_size);
+	memset(data, 6, 4);
+	memset((void *)data + data_size - 4, 7, 4);
 
 	/* 转移数据至skb */
-
 	struct sk_buff *skb;
 	int round_len = round_up(data_size, 4);
 	skb = dev_alloc_skb(round_len);
 	if (!skb)
 	{
 		pr_err("%s : srng test skb alloc err \n", WIRELESS_SIMU_DEVICE_NAME);
+		goto err_free_data;
 	}
 	memcpy(skb->data, data, data_size);
 
@@ -1134,41 +1132,32 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 	if (ret)
 	{
 		pr_err("%s : srng test dma err \n", WIRELESS_SIMU_DEVICE_NAME);
-		goto err_free_data;
+		goto err_free_skb;
 	}
 	skb_put(skb, round_len);
 	struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
 	skb_cb->paddr = skb_paddr;
 	pr_info("%s : hal srng test data %llx paddr %d size %08x eg\n", WIRELESS_SIMU_DEVICE_NAME, skb_cb->paddr, skb->len, *(skb->data + 25));
 
-	/* 数据传输 */
-	ret = wireless_simu_hal_srng_test_send(&st, skb, 0, 0);
-	if (ret)
+	for (u32 test_count = 0; test_count < 50; test_count++)
 	{
-		pr_err("%s : srng test send data err \n", WIRELESS_SIMU_DEVICE_NAME);
-		goto err_free_dma;
-	}
-
-	/* 数据传输 */
-	ret = wireless_simu_hal_srng_test_send(&st, skb, 0, 0);
-	if (ret)
-	{
-		pr_err("%s : srng test send data err \n", WIRELESS_SIMU_DEVICE_NAME);
-		goto err_free_dma;
+		/* 数据传输 */
+		memcpy(skb->data, &test_count, sizeof(test_count));
+		ret = wireless_simu_hal_srng_test_send(&st, skb, 0, 0);
+		if (ret)
+		{
+			pr_err("%s : err srng test send index %08x code %d \n", WIRELESS_SIMU_DEVICE_NAME, test_count, ret);
+			goto err_free_dma;
+		}
+		pr_info("%s : test hal src post %08x \n", WIRELESS_SIMU_DEVICE_NAME, test_count);
 	}
 
 	msleep(100);
 
-	/* end free malloc */
-	dma_unmap_single(&priv->pci_dev->dev, skb_paddr, skb->len, DMA_TO_DEVICE);
-	kfree(data);
-	hal_srng_test_free_pipes(&st);
-	kfree(st.host_config);
-	pr_info("%s : srng test end \n", WIRELESS_SIMU_DEVICE_NAME);
-	return;
-
 err_free_dma:
 	dma_unmap_single(&priv->pci_dev->dev, skb_paddr, skb->len, DMA_TO_DEVICE);
+err_free_skb:
+	dev_kfree_skb_any(skb);
 err_free_data:
 	kfree(data);
 err_clear_pipes:
@@ -1199,13 +1188,17 @@ static int wireless_simu_test_dst_recv_next(struct srng_test_pipe *pipe, struct 
 	int ret = 0;
 
 	spin_lock_bh(&priv->st_dst.srng_test_lock);
-	sw_index = pipe->status_ring->sw_index;
-	nentries_mask = pipe->status_ring->nentries_mask;
+
+	sw_index = pipe->dst_ring->sw_index;
+	nentries_mask = pipe->dst_ring->nentries_mask;
+
 	srng = &priv->hal.srng_list[pipe->status_ring->hal_ring_id];
 
 	spin_lock_bh(&srng->lock);
 
 	wireless_simu_hal_srng_access_begin(priv, srng);
+
+	// pr_info("%s : status hp %08x \n", WIRELESS_SIMU_DEVICE_NAME, srng->u.dst_ring.cached_hp);
 
 	desc = wireless_simu_hal_srng_dst_get_next_entry(priv, srng);
 	if (!desc)
@@ -1221,10 +1214,13 @@ static int wireless_simu_test_dst_recv_next(struct srng_test_pipe *pipe, struct 
 		goto err;
 	}
 
+	pr_info("%s : read stauts sw_index %08x nbytes %08x \n", WIRELESS_SIMU_DEVICE_NAME, sw_index, *nbytes);
+
 	*skb = pipe->dst_ring->skb[sw_index];
 	pipe->dst_ring->skb[sw_index] = NULL;
 
 	sw_index = ((sw_index + 1) & nentries_mask);
+	pipe->dst_ring->sw_index = sw_index;
 
 	pipe->rx_buf_needed++;
 err:
@@ -1376,7 +1372,7 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 		dma_unmap_single(&priv->pci_dev->dev, WIRELESS_SIMU_SKB_CB(skb)->paddr, max_nbytes, DMA_FROM_DEVICE);
 		if (unlikely(max_nbytes < nbytes))
 		{
-			pr_err("%s : data from dst test ring long nbytes %d max_bytes %d\n",
+			pr_err("%s : err data from dst ring long nbytes %d max_bytes %d\n",
 				   WIRELESS_SIMU_DEVICE_NAME, nbytes, max_nbytes);
 			dev_kfree_skb_any(skb);
 			continue;
@@ -1388,8 +1384,14 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 
 	while ((skb = __skb_dequeue(&list)))
 	{
-		pr_info("%s : skb from dst test ring length %d, eg %08x", WIRELESS_SIMU_DEVICE_NAME, skb->len, *(u32 *)skb->data);
-		/* 接下来是skb的处理逻辑，这里直接释放掉了 */
+		/* skb 逻辑处理
+		 * 打印
+		 */
+		DEFINE_SPINLOCK(print_skb_lock);
+		spin_lock(&print_skb_lock);
+		print_hex_dump(KERN_INFO, "wireless_simu : skb : ", DUMP_PREFIX_NONE, 16, 1, skb->data, skb->len, false);
+		spin_unlock(&print_skb_lock);
+		
 		dev_kfree_skb_any(skb);
 	}
 
@@ -1397,7 +1399,7 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 	ret = wireless_simu_test_dst_post_pipe(pipe);
 	if (ret && ret != -ENOSPC)
 	{
-		pr_err("%s : dst test ring post rx buf err pipe %d ret %d \n",
+		pr_err("%s : err dst ring post rx buf pipe %d ret %d \n",
 			   WIRELESS_SIMU_DEVICE_NAME, pipe->pipe_num, ret);
 
 		mod_timer(&priv->st_dst.rx_replenish_retry, jiffies + WIRELESS_SIMU_RX_POST_RETRY_JIFFIES);
@@ -1440,6 +1442,8 @@ static void wireless_simu_hal_srng_dst_tasklet(struct tasklet_struct *t)
 {
 	struct srng_test_pipe *pipe = from_tasklet(pipe, t, intr_tq);
 	struct wireless_simu *priv = pipe->priv;
+
+	// pr_info("%s : task start \n", WIRELESS_SIMU_DEVICE_NAME);
 
 	wireless_simu_irq_hal_srng_dst_dma_test(priv, pipe->pipe_num);
 
@@ -1499,7 +1503,7 @@ int wireless_simu_hal_srng_dst_test_init(struct wireless_simu *priv)
 
 		if (pipe->dst_ring && pipe->status_ring)
 		{
-			pr_info("%s : dst status ring register to hal_srng \n", WIRELESS_SIMU_DEVICE_NAME);
+			// pr_info("%s : dst status ring register to hal_srng \n", WIRELESS_SIMU_DEVICE_NAME);
 
 			ret = hal_srng_test_init_ring(priv, pipe->dst_ring, i, HAL_TEST_SRNG_DST);
 			ret |= hal_srng_test_init_ring(priv, pipe->status_ring, i, HAL_TEST_SRNG_DST_STATUS);
@@ -1549,7 +1553,7 @@ static void wireless_simu_hal_srng_dst_test_cleanuprx(struct srng_test_pipe *pip
 	struct srng_test_ring *ring = pipe->dst_ring;
 	struct sk_buff *skb;
 
-	if(!ring && pipe->buf_sz)
+	if (!ring && pipe->buf_sz)
 		return;
 
 	for (int i = 0; i < ring->nentries; i++)
@@ -1561,7 +1565,7 @@ static void wireless_simu_hal_srng_dst_test_cleanuprx(struct srng_test_pipe *pip
 		ring->skb[i] = NULL;
 		dma_unmap_single(&priv->pci_dev->dev, WIRELESS_SIMU_SKB_CB(skb)->paddr, skb->len + skb_tailroom(skb), DMA_FROM_DEVICE);
 		dev_kfree_skb_any(skb);
-	}	
+	}
 }
 
 void wireless_simu_hal_srng_dst_test_deinit(struct wireless_simu *priv)
@@ -1579,7 +1583,8 @@ void wireless_simu_hal_srng_dst_test_deinit(struct wireless_simu *priv)
 		tasklet_kill(&st->pipes[i].intr_tq);
 	}
 
-	for(int pipe_num = 0; pipe_num < st->pipes_count; pipe_num++){
+	for (int pipe_num = 0; pipe_num < st->pipes_count; pipe_num++)
+	{
 		pipe = &st->pipes[pipe_num];
 		wireless_simu_hal_srng_dst_test_cleanuprx(pipe);
 	}

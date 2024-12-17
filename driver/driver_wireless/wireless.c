@@ -244,7 +244,9 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
     pr_info("%s : hal srng init success %p wrp %p rdp \n", WIRELESS_SIMU_DEVICE_NAME, priv->hal.wrp.vaddr, priv->hal.rdp.vaddr);
 
     wireless_simu_hal_srng_dst_test_init(priv); // 先初始化dst ring
-    // wireless_simu_hal_srng_test(priv);
+    
+    /* 尝试发一些数据 */
+    wireless_simu_hal_srng_test(priv);
 
     priv->workqueue_aux = create_singlethread_workqueue("wireless_simu_aux_wq"); // 申请成功后记得退出时删除
     if (!priv->workqueue_aux)
