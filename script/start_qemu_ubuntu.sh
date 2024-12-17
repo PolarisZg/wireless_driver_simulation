@@ -11,7 +11,8 @@ sudo ../qemu_simudevice/build/qemu-system-x86_64 \
 -vnc 10.129.19.237:0 \
 -device wirelesssimu \
 -device edu \
--nographic
+-nographic \
+-s
 # -cdrom ./ubuntu-22.04.4-desktop-amd64.iso
 
 # 下方的暂时无用
