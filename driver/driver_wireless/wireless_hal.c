@@ -1045,6 +1045,7 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 	pr_info("%s : srng test start \n", WIRELESS_SIMU_DEVICE_NAME);
 
 	struct srng_test st;
+	memset(&st, 0, sizeof(st));
 	struct srng_test_pipe *pipe;
 	int ret;
 
@@ -1105,7 +1106,7 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 
 	/* 准备数据 */
 	int data_size = round_up(50, 4);
-	void *data = kmalloc(data_size, GFP_KERNEL);
+	void *data = kzalloc(data_size, GFP_KERNEL);
 	if (!data)
 	{
 		pr_err("%s : srng test data isnull \n", WIRELESS_SIMU_DEVICE_NAME);
@@ -1124,6 +1125,7 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 		goto err_free_data;
 	}
 	memcpy(skb->data, data, data_size);
+	skb_put(skb, round_len);
 
 	/* dma 转换 */
 	dma_addr_t skb_paddr; // 在ath11k中paddr要存放在skb_cb之中
@@ -1134,7 +1136,6 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 		pr_err("%s : srng test dma err \n", WIRELESS_SIMU_DEVICE_NAME);
 		goto err_free_skb;
 	}
-	skb_put(skb, round_len);
 	struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
 	skb_cb->paddr = skb_paddr;
 	pr_info("%s : hal srng test data %llx paddr %d size %08x eg\n", WIRELESS_SIMU_DEVICE_NAME, skb_cb->paddr, skb->len, *(skb->data + 25));
