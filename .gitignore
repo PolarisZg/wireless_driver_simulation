@@ -30,3 +30,5 @@ uboot.elf
 *.xlsx
 *.tar.*
 *.tar
+*.ext3
+*.etx3
