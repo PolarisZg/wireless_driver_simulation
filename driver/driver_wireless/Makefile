@@ -19,5 +19,8 @@ all:
 wsl:
 	make -C ../../linux-stable M=$(shell pwd) modules
 
+aarch64: 
+	make -C ../../linux-stable M=$(shell pwd) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules
+
 clean:
 	rm -f *.ko *.o *.mod.o *.mod.c *.symvers *.order *.o.d *.mod *.cmd .*.cmd
