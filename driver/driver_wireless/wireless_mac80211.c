@@ -57,7 +57,8 @@ static int wireless_simu_mgmt_tx_wmi(struct wireless_simu *priv, struct wireless
              ieee80211_is_deauth(hdr->frame_control) ||
              ieee80211_is_disassoc(hdr->frame_control)))
         {
-            if(!(info->control.hw_key)){
+            if (!(info->control.hw_key))
+            {
                 pr_info("%s : mac mgmt tx no key encrypt \n", WIRELESS_SIMU_DEVICE_NAME);
             }
             enctype = wireless_simu_dp_tx_get_encrypt_type(skb_cb->cipher);
@@ -68,17 +69,19 @@ static int wireless_simu_mgmt_tx_wmi(struct wireless_simu *priv, struct wireless
 
     // 转dma地址，并存到skb中，后期需要将pci_dev提出来，用来屏蔽掉总线的区别
     paddr = dma_map_single(&priv->pci_dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
-    if(dma_mapping_error(&priv->pci_dev->dev, paddr)){
+    if (dma_mapping_error(&priv->pci_dev->dev, paddr))
+    {
         pr_err("%s : mac mgmt tx dma map err \n", WIRELESS_SIMU_DEVICE_NAME);
         ret = -EIO;
         goto err_free_idr;
     }
 
     skb_cb->paddr = paddr;
-    
+
     // 发送到wmi 层
     ret = wireless_simu_wmi_mgmt_send(priv, simu_vif->vif_id, buf_id, skb);
-    if(ret){
+    if (ret)
+    {
         pr_info("%s : mac mgmt %d tx fail to wmi %d\n", WIRELESS_SIMU_DEVICE_NAME, buf_id, ret);
         goto err_unmap_buf;
     }
@@ -165,7 +168,8 @@ static void wireless_mac80211_tx(struct ieee80211_hw *dev,
     memset(skb_cb, 0, sizeof(*skb_cb));
     skb_cb->vif = vif;
 
-    if(key){
+    if (key)
+    {
         skb_cb->cipher = key->cipher;
         skb_cb->flags |= WIRELESS_SIMU_SKB_CIPHER_SET;
     }
@@ -209,7 +213,7 @@ static int wireless_mac80211_start(struct ieee80211_hw *hw)
     pr_info("%s : mac80211 start done \n", WIRELESS_SIMU_DEVICE_NAME);
     return 0;
 }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,11,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 static void wireless_mac80211_stop(struct ieee80211_hw *hw, bool suspend)
 #else
 static void wireless_mac80211_stop(struct ieee80211_hw *hw)
@@ -408,6 +412,38 @@ static int wireless_mac80211_ampdu_action(struct ieee80211_hw *hw,
     return 0;
 }
 
+static int wireless_mac80211_add_chanctx(struct ieee80211_hw *hw,
+                                         struct ieee80211_chanctx_conf *ctx)
+{
+    return 0;
+}
+
+static void wireless_mac80211_remove_chanctx(struct ieee80211_hw *hw,
+                                             struct ieee80211_chanctx_conf *ctx)
+{
+}
+
+static void wireless_mac80211_change_chanctx(struct ieee80211_hw *hw,
+                                             struct ieee80211_chanctx_conf *ctx,
+                                             u32 changed)
+{
+}
+
+static int wireless_mac80211_assign_vif_chanctx(struct ieee80211_hw *hw,
+                                                struct ieee80211_vif *vif,
+                                                struct ieee80211_bss_conf *link_conf,
+                                                struct ieee80211_chanctx_conf *ctx)
+{
+    return 0;
+}
+
+static void wireless_mac80211_unassign_vif_chanctx(struct ieee80211_hw *hw,
+                                                   struct ieee80211_vif *vif,
+                                                   struct ieee80211_bss_conf *link_conf,
+                                                   struct ieee80211_chanctx_conf *ctx)
+{
+}
+
 static int wireless_mac80211_set_rts_threshold(struct ieee80211_hw *hw,
                                                u32 value)
 {
@@ -471,11 +507,11 @@ static const struct ieee80211_ops wireless_mac80211_ops = {
     .set_antenna = wireless_mac80211_set_antenna,
     .get_antenna = wireless_mac80211_get_antenna,
     .ampdu_action = wireless_mac80211_ampdu_action,
-    // .add_chanctx = ,
-    // .remove_chanctx = ,
-    // .change_chanctx = ,
-    // .assign_vif_chanctx = ,
-    // .unassign_vif_chanctx = ,
+    .add_chanctx = wireless_mac80211_add_chanctx,
+    .remove_chanctx = wireless_mac80211_remove_chanctx,
+    .change_chanctx = wireless_mac80211_change_chanctx,
+    .assign_vif_chanctx = wireless_mac80211_assign_vif_chanctx,
+    .unassign_vif_chanctx = wireless_mac80211_unassign_vif_chanctx,
     // .switch_vif_chanctx = ,
     .set_rts_threshold = wireless_mac80211_set_rts_threshold,
     // .set_frag_threshold = ,
@@ -516,7 +552,7 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
     {
         err = MAC80211_ALLOC_ERR;
         pr_info("%s : mac probe : alloc hw failed \n", WIRELESS_SIMU_DEVICE_NAME);
-        goto err_free_dev;
+        goto err_end;
     }
     hw->priv = priv;
     priv->hw = hw;
@@ -593,6 +629,7 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
 
     // hw中队列数量设置，一般为4，因为硬件中一般会使用4个队列（对应于4个Qos等级）去发送data数据帧，mgmt单独再起一个队列
     priv->hw->queues = WIRELESS_SIMU_HW_QUEUE;
+    priv->hw->offchannel_tx_hw_queue = WIRELESS_SIMU_HW_QUEUE - 1;
 
     /* wiphy扩展标识，用于nl80211部分功能的选择启用
      * nl80211用于userspace的控制软件对网卡进行控制
@@ -643,6 +680,7 @@ err_free_dev:
     kfree(priv->band_5GHZ.channels);
     kfree(priv->band_6GHZ.channels);
     ieee80211_free_hw(hw);
+err_end:
     priv->hw = NULL;
     return err;
 }
