@@ -1,0 +1,42 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "${workspaceFolder}/../qemu_simudevice/build/qemu-system-aarch64",
+            "args": [
+                "-s",
+                "-S",
+                "-nographic",
+                "-M",
+                "virt",
+                "-cpu",
+                "cortex-a53",
+                "-m",
+                "16G",
+                "-kernel",
+                "${workspaceFolder}/arch/arm64/boot/Image",
+                "-append",
+                "nokaslr console=ttyAMA0 root=/dev/vda rw",
+                "-device",
+                "virtio-blk-device,drive=disk",
+                "-drive",
+                "file=${workspaceFolder}/../script/aarchrootfs.etx3,if=none,format=raw,id=disk",
+                "-device",
+                "edu",
+                "-device",
+                "wirelesssimu"
+
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
