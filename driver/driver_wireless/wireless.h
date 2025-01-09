@@ -16,6 +16,7 @@
 #include <linux/dmapool.h>
 #include <linux/dmaengine.h>
 #include <net/cfg80211.h>
+#include <net/mac80211.h>
 #include <linux/version.h>
 
 #include <linux/skbuff.h>
@@ -31,6 +32,7 @@
 #include "wireless_hal.h"
 #include "wireless_hif.h"
 #include "wireless_irq.h"
+#include "wireless_core.h"
 
 #define WIRELESS_SIMU_DEVICE_NAME "wirelesssimu"
 #define WIRELESS_SIMU_RX_POST_RETRY_JIFFIES 50
@@ -64,10 +66,11 @@
 /* 硬件基础地址，基础寄存器的高16bit为全零 */
 #define HAL_BASIC_BASE_REG 0x00000000
 #define HAL_BASIC_REG(n) ((n << 2) & 0x0000ffff)
-enum HAL_ENUM_REG_BASIC{
+enum HAL_ENUM_REG_BASIC
+{
     WIRELESS_REG_BASIC_IRQ_ENABLE = 1,
     WIRELESS_REG_BASIC_IRQ_STATUS,
-    
+
 };
 
 #define SETBIT(x, y) (x |= 1 << y)
@@ -93,7 +96,8 @@ enum Wireless_LongTimeEvent
 };
 
 // dev_flag 需要与设备端同步修改, 驱动中对应于unsigned long wireless_simu::dev_flag
-enum wireless_simu_dev_flags{
+enum wireless_simu_dev_flags
+{
     WIRELESS_SIMU_DEV_FLAG_CRASH_FLUSH,
 };
 
@@ -136,7 +140,7 @@ struct Wireless_Tx_Ring
 
 /*
  * rx DMA 接收队列
- * 
+ *
  * 该队列需要在启动时直接申请一块较大的内存用于等待设备端填充数据，并把对应的内存地址传送给设备;
  * 接收队列长度固定，在退出时无需free;
  * */
@@ -157,6 +161,7 @@ struct wireless_simu
 {
     struct pci_dev *pci_dev;
     struct device dev;
+    unsigned long dev_flags;
     void __iomem *mmio_addr;
     u32 cdev_num;
     struct cdev *char_dev;
@@ -171,7 +176,13 @@ struct wireless_simu
     struct Wireless_Rx_Ring rx_ring;
 
     struct ieee80211_hw *hw;
+
+    /* 保护所有 mac80211 的访问是单线程的
+     * 包括 mgmt_tx
+     * dp_tx
+     * .....*/
     struct mutex mac_conf_mutex;
+
     unsigned int filter_flags;
     struct ieee80211_supported_band band_2GHZ;
     struct ieee80211_supported_band band_5GHZ;
@@ -181,12 +192,15 @@ struct wireless_simu
     u8 mac_addr[ETH_ALEN];
 
     struct wireless_simu_hal hal;
-    
+
     // tx_mgmt 会插入到这个workqueue中
     struct workqueue_struct *workqueue_aux;
 
     struct ieee80211_vif *vif[WIRELESS_MAX_NUM_VIF];
     // int vif_num;
+
+    // vdev 相关
+    u64 allocated_vdev_map;
 
     // mgmt tx 相关
     struct sk_buff_head mgmt_tx_queue;
@@ -197,6 +211,8 @@ struct wireless_simu
     struct idr txmgmt_idr;
     // mgmt id 变化时加锁
     spinlock_t txmgmt_idr_lock;
+    // 给 htc 的 ep 单独添加的 lock , 出现其他情况需要扩展
+    spinlock_t ep_htc_txlock;
 
     // ce 发送等待队列, 会被wmi层调用
     wait_queue_head_t tx_ce_desc_wq;
@@ -209,6 +225,9 @@ struct wireless_simu
 
     // dst_srng_test
     struct srng_test st_dst;
+
+    // ce pipe 相关
+    struct wireless_simu_ce ce;
 
     bool stop;
 };

@@ -28,7 +28,33 @@ static const struct hal_srng_config hw_srng_config_template[] = {
 		.ring_dir = HAL_SRNG_DIR_DST,
 		.max_size = HAL_TEST_SW2HW_SIZE,
 	},
-
+	{
+		/* CE_SRC */
+		.start_ring_id = HAL_SRNG_RING_ID_CE0_SRC,
+		.max_rings = 12,
+		.entry_size = sizeof(struct hal_ce_srng_src_desc) >> 2,
+		.lmac_ring = false,
+		.ring_dir = HAL_SRNG_DIR_SRC,
+		.max_size = HAL_CE_SRC_RING_BASE_MSB_RING_SIZE,
+	},
+	{
+		/* CE_DST */
+		.start_ring_id = HAL_SRNG_RING_ID_CE0_DST,
+		.max_rings = 12,
+		.entry_size = sizeof(struct hal_ce_srng_dest_desc) >> 2,
+		.lmac_ring = false,
+		.ring_dir = HAL_SRNG_DIR_SRC,
+		.max_size = HAL_CE_DST_RING_BASE_MSB_RING_SIZE,
+	},
+	{
+		/* CE_DST_STATUS */
+		.start_ring_id = HAL_SRNG_RING_ID_CE0_DST_STATUS,
+		.max_rings = 12,
+		.entry_size = sizeof(struct hal_ce_srng_dst_status_desc) >> 2,
+		.lmac_ring = false,
+		.ring_dir = HAL_SRNG_DIR_DST,
+		.max_size = HAL_CE_DST_STATUS_RING_BASE_MSB_RING_SIZE,
+	},
 	/* TODO: max_rings can populated by querying HW capabilities */
 	// { /* REO_DST */
 	// 	.start_ring_id = HAL_SRNG_RING_ID_REO2SW1,
@@ -102,30 +128,6 @@ static const struct hal_srng_config hw_srng_config_template[] = {
 	// 	.lmac_ring = false,
 	// 	.ring_dir = HAL_SRNG_DIR_DST,
 	// 	.max_size = HAL_TCL_STATUS_RING_BASE_MSB_RING_SIZE,
-	// },
-	// { /* CE_SRC */
-	// 	.start_ring_id = HAL_SRNG_RING_ID_CE0_SRC,
-	// 	.max_rings = 12,
-	// 	.entry_size = sizeof(struct hal_ce_srng_src_desc) >> 2,
-	// 	.lmac_ring = false,
-	// 	.ring_dir = HAL_SRNG_DIR_SRC,
-	// 	.max_size = HAL_CE_SRC_RING_BASE_MSB_RING_SIZE,
-	// },
-	// { /* CE_DST */
-	// 	.start_ring_id = HAL_SRNG_RING_ID_CE0_DST,
-	// 	.max_rings = 12,
-	// 	.entry_size = sizeof(struct hal_ce_srng_dest_desc) >> 2,
-	// 	.lmac_ring = false,
-	// 	.ring_dir = HAL_SRNG_DIR_SRC,
-	// 	.max_size = HAL_CE_DST_RING_BASE_MSB_RING_SIZE,
-	// },
-	// { /* CE_DST_STATUS */
-	// 	.start_ring_id = HAL_SRNG_RING_ID_CE0_DST_STATUS,
-	// 	.max_rings = 12,
-	// 	.entry_size = sizeof(struct hal_ce_srng_dst_status_desc) >> 2,
-	// 	.lmac_ring = false,
-	// 	.ring_dir = HAL_SRNG_DIR_DST,
-	// 	.max_size = HAL_CE_DST_STATUS_RING_BASE_MSB_RING_SIZE,
 	// },
 	// { /* WBM_IDLE_LINK */
 	// 	.start_ring_id = HAL_SRNG_RING_ID_WBM_IDLE_LINK,
@@ -706,6 +708,26 @@ void wireless_simu_hal_srng_access_end(struct wireless_simu *priv, struct hal_sr
 	srng->timestamp = jiffies;
 }
 
+u32 *wireless_simu_hal_srng_src_reap_next(struct wireless_simu *priv, struct hal_srng *srng)
+{
+	u32 *desc;
+	u32 next_reap_hp;
+
+	lockdep_assert_held(&srng->lock);
+
+	next_reap_hp = (srng->u.src_ring.reap_hp + srng->entry_size) % srng->ring_size;
+
+	if (next_reap_hp == srng->u.src_ring.cached_tp)
+	{
+		return NULL;
+	}
+
+	desc = srng->ring_base_vaddr + next_reap_hp;
+	srng->u.src_ring.reap_hp = next_reap_hp;
+
+	return desc;
+}
+
 u32 *wireless_simu_hal_srng_src_get_next_reaped(struct wireless_simu *priv, struct hal_srng *srng)
 {
 	u32 *desc;
@@ -944,7 +966,7 @@ static int hal_srng_test_init_ring(struct wireless_simu *priv, struct srng_test_
 static void wireless_simu_hal_srng_test_src_set_desc(void *buf, struct sk_buff *skb, u32 id, u8 byte_swap_data, unsigned int write_index)
 {
 	struct hal_test_sw2hw *desc = buf;
-	dma_addr_t paddr = WIRELESS_SIMU_SKB_CB(skb)->paddr;
+	dma_addr_t paddr = WIRELESS_SKB_CB(skb)->paddr;
 
 	desc->buffer_addr_low = paddr & HAL_ADDR_LSB_REG_MASK;
 	desc->buffer_addr_info = FIELD_PREP(GENMASK(7, 0), ((u64)paddr >> HAL_ADDR_MSB_REG_SHIFT)) |
@@ -1025,10 +1047,10 @@ static int wireless_simu_hal_srng_test_send(struct srng_test *st, struct sk_buff
 	pipe->src_ring->skb[write_index] = skb;
 
 	/* 本质上这是一个取模运算，
-	 * nentries_mask 为 nentries 的总数量 - 1 
+	 * nentries_mask 为 nentries 的总数量 - 1
 	 * nentries 为 2 的 指数倍(pow of 2)
-	*/
-	pipe->src_ring->write_index = (((write_index) + 1) & (nentries_mask)); 
+	 */
+	pipe->src_ring->write_index = (((write_index) + 1) & (nentries_mask));
 
 exit:
 	wireless_simu_hal_srng_access_end(st->priv, srng);
@@ -1036,7 +1058,7 @@ exit:
 	spin_unlock_bh(&srng->lock);
 
 	spin_unlock_bh(&st->srng_test_lock);
-	
+
 	return ret;
 }
 
@@ -1136,7 +1158,7 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 		pr_err("%s : srng test dma err \n", WIRELESS_SIMU_DEVICE_NAME);
 		goto err_free_skb;
 	}
-	struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
+	struct wireless_skb_cb *skb_cb = WIRELESS_SKB_CB(skb);
 	skb_cb->paddr = skb_paddr;
 	pr_info("%s : hal srng test data %llx paddr %d size %08x eg\n", WIRELESS_SIMU_DEVICE_NAME, skb_cb->paddr, skb->len, *(skb->data + 25));
 
@@ -1278,7 +1300,7 @@ static int wireless_simu_test_dst_enqueue_pipe(struct srng_test_pipe *pipe, stru
 
 	pr_info("%s : dst_ring %08x skb %08x paddr %llx \n",
 			WIRELESS_SIMU_DEVICE_NAME, ring->hal_ring_id, write_index,
-			WIRELESS_SIMU_SKB_CB(ring->skb[write_index])->paddr);
+			WIRELESS_SKB_CB(ring->skb[write_index])->paddr);
 
 	write_index = (write_index + 1) & nentries_mask;
 	ring->write_index = write_index;
@@ -1329,7 +1351,7 @@ static int wireless_simu_test_dst_post_pipe(struct srng_test_pipe *pipe)
 			goto exit;
 		}
 
-		WIRELESS_SIMU_SKB_CB(skb)->paddr = paddr;
+		WIRELESS_SKB_CB(skb)->paddr = paddr;
 
 		ret = wireless_simu_test_dst_enqueue_pipe(pipe, skb, paddr);
 
@@ -1370,7 +1392,7 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 	while (wireless_simu_test_dst_recv_next(pipe, &skb, &nbytes) == 0)
 	{
 		max_nbytes = skb->len + skb_tailroom(skb);
-		dma_unmap_single(&priv->pci_dev->dev, WIRELESS_SIMU_SKB_CB(skb)->paddr, max_nbytes, DMA_FROM_DEVICE);
+		dma_unmap_single(&priv->pci_dev->dev, WIRELESS_SKB_CB(skb)->paddr, max_nbytes, DMA_FROM_DEVICE);
 		if (unlikely(max_nbytes < nbytes))
 		{
 			pr_err("%s : err data from dst ring long nbytes %d max_bytes %d\n",
@@ -1392,7 +1414,7 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 		spin_lock(&print_skb_lock);
 		print_hex_dump(KERN_INFO, "wireless_simu : skb : ", DUMP_PREFIX_NONE, 16, 1, skb->data, skb->len, false);
 		spin_unlock(&print_skb_lock);
-		
+
 		dev_kfree_skb_any(skb);
 	}
 
@@ -1564,7 +1586,7 @@ static void wireless_simu_hal_srng_dst_test_cleanuprx(struct srng_test_pipe *pip
 			continue;
 
 		ring->skb[i] = NULL;
-		dma_unmap_single(&priv->pci_dev->dev, WIRELESS_SIMU_SKB_CB(skb)->paddr, skb->len + skb_tailroom(skb), DMA_FROM_DEVICE);
+		dma_unmap_single(&priv->pci_dev->dev, WIRELESS_SKB_CB(skb)->paddr, skb->len + skb_tailroom(skb), DMA_FROM_DEVICE);
 		dev_kfree_skb_any(skb);
 	}
 }

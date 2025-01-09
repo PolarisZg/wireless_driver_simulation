@@ -4,72 +4,72 @@
 #include "wireless.h"
 
 /* TCL ring field mask and offset */
-#define HAL_TCL1_RING_BASE_MSB_RING_SIZE		GENMASK(27, 8)
-#define HAL_TCL1_RING_BASE_MSB_RING_BASE_ADDR_MSB	GENMASK(7, 0)
-#define HAL_TCL1_RING_ID_ENTRY_SIZE			GENMASK(7, 0)
-#define HAL_TCL1_RING_MISC_MSI_LOOPCNT_DISABLE		BIT(1)
-#define HAL_TCL1_RING_MISC_MSI_SWAP			BIT(3)
-#define HAL_TCL1_RING_MISC_HOST_FW_SWAP			BIT(4)
-#define HAL_TCL1_RING_MISC_DATA_TLV_SWAP		BIT(5)
-#define HAL_TCL1_RING_MISC_SRNG_ENABLE			BIT(6)
-#define HAL_TCL1_RING_CONSR_INT_SETUP_IX0_INTR_TMR_THOLD   GENMASK(31, 16)
+#define HAL_TCL1_RING_BASE_MSB_RING_SIZE GENMASK(27, 8)
+#define HAL_TCL1_RING_BASE_MSB_RING_BASE_ADDR_MSB GENMASK(7, 0)
+#define HAL_TCL1_RING_ID_ENTRY_SIZE GENMASK(7, 0)
+#define HAL_TCL1_RING_MISC_MSI_LOOPCNT_DISABLE BIT(1)
+#define HAL_TCL1_RING_MISC_MSI_SWAP BIT(3)
+#define HAL_TCL1_RING_MISC_HOST_FW_SWAP BIT(4)
+#define HAL_TCL1_RING_MISC_DATA_TLV_SWAP BIT(5)
+#define HAL_TCL1_RING_MISC_SRNG_ENABLE BIT(6)
+#define HAL_TCL1_RING_CONSR_INT_SETUP_IX0_INTR_TMR_THOLD GENMASK(31, 16)
 #define HAL_TCL1_RING_CONSR_INT_SETUP_IX0_BATCH_COUNTER_THOLD GENMASK(14, 0)
-#define HAL_TCL1_RING_CONSR_INT_SETUP_IX1_LOW_THOLD	GENMASK(15, 0)
-#define HAL_TCL1_RING_MSI1_BASE_MSB_MSI1_ENABLE		BIT(8)
-#define HAL_TCL1_RING_MSI1_BASE_MSB_ADDR		GENMASK(7, 0)
-#define HAL_TCL1_RING_CMN_CTRL_DSCP_TID_MAP_PROG_EN	BIT(17)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP		GENMASK(31, 0)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP0		GENMASK(2, 0)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP1		GENMASK(5, 3)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP2		GENMASK(8, 6)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP3		GENMASK(11, 9)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP4		GENMASK(14, 12)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP5		GENMASK(17, 15)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP6		GENMASK(20, 18)
-#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP7		GENMASK(23, 21)
+#define HAL_TCL1_RING_CONSR_INT_SETUP_IX1_LOW_THOLD GENMASK(15, 0)
+#define HAL_TCL1_RING_MSI1_BASE_MSB_MSI1_ENABLE BIT(8)
+#define HAL_TCL1_RING_MSI1_BASE_MSB_ADDR GENMASK(7, 0)
+#define HAL_TCL1_RING_CMN_CTRL_DSCP_TID_MAP_PROG_EN BIT(17)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP GENMASK(31, 0)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP0 GENMASK(2, 0)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP1 GENMASK(5, 3)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP2 GENMASK(8, 6)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP3 GENMASK(11, 9)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP4 GENMASK(14, 12)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP5 GENMASK(17, 15)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP6 GENMASK(20, 18)
+#define HAL_TCL1_RING_FIELD_DSCP_TID_MAP7 GENMASK(23, 21)
 
 /* REO ring field mask and offset */
-#define HAL_REO1_RING_BASE_MSB_RING_SIZE		GENMASK(27, 8)
-#define HAL_REO1_RING_BASE_MSB_RING_BASE_ADDR_MSB	GENMASK(7, 0)
-#define HAL_REO1_RING_ID_RING_ID			GENMASK(15, 8)
-#define HAL_REO1_RING_ID_ENTRY_SIZE			GENMASK(7, 0)
-#define HAL_REO1_RING_MISC_MSI_SWAP			BIT(3)
-#define HAL_REO1_RING_MISC_HOST_FW_SWAP			BIT(4)
-#define HAL_REO1_RING_MISC_DATA_TLV_SWAP		BIT(5)
-#define HAL_REO1_RING_MISC_SRNG_ENABLE			BIT(6)
-#define HAL_REO1_RING_PRDR_INT_SETUP_INTR_TMR_THOLD	GENMASK(31, 16)
+#define HAL_REO1_RING_BASE_MSB_RING_SIZE GENMASK(27, 8)
+#define HAL_REO1_RING_BASE_MSB_RING_BASE_ADDR_MSB GENMASK(7, 0)
+#define HAL_REO1_RING_ID_RING_ID GENMASK(15, 8)
+#define HAL_REO1_RING_ID_ENTRY_SIZE GENMASK(7, 0)
+#define HAL_REO1_RING_MISC_MSI_SWAP BIT(3)
+#define HAL_REO1_RING_MISC_HOST_FW_SWAP BIT(4)
+#define HAL_REO1_RING_MISC_DATA_TLV_SWAP BIT(5)
+#define HAL_REO1_RING_MISC_SRNG_ENABLE BIT(6)
+#define HAL_REO1_RING_PRDR_INT_SETUP_INTR_TMR_THOLD GENMASK(31, 16)
 #define HAL_REO1_RING_PRDR_INT_SETUP_BATCH_COUNTER_THOLD GENMASK(14, 0)
-#define HAL_REO1_RING_MSI1_BASE_MSB_MSI1_ENABLE		BIT(8)
-#define HAL_REO1_RING_MSI1_BASE_MSB_ADDR		GENMASK(7, 0)
-#define HAL_REO1_GEN_ENABLE_FRAG_DST_RING		GENMASK(25, 23)
-#define HAL_REO1_GEN_ENABLE_AGING_LIST_ENABLE		BIT(2)
-#define HAL_REO1_GEN_ENABLE_AGING_FLUSH_ENABLE		BIT(3)
-#define HAL_REO1_MISC_CTL_FRAGMENT_DST_RING		GENMASK(20, 17)
+#define HAL_REO1_RING_MSI1_BASE_MSB_MSI1_ENABLE BIT(8)
+#define HAL_REO1_RING_MSI1_BASE_MSB_ADDR GENMASK(7, 0)
+#define HAL_REO1_GEN_ENABLE_FRAG_DST_RING GENMASK(25, 23)
+#define HAL_REO1_GEN_ENABLE_AGING_LIST_ENABLE BIT(2)
+#define HAL_REO1_GEN_ENABLE_AGING_FLUSH_ENABLE BIT(3)
+#define HAL_REO1_MISC_CTL_FRAGMENT_DST_RING GENMASK(20, 17)
 
-#define HAL_ADDR_LSB_REG_MASK				0xffffffff
+#define HAL_ADDR_LSB_REG_MASK 0xffffffff
 
-#define HAL_ADDR_MSB_REG_SHIFT				32
+#define HAL_ADDR_MSB_REG_SHIFT 32
 
 /* SRNG registers are split into two groups R0 and R2 */
 #define HAL_SRNG_REG_GRP_R0 0
 #define HAL_SRNG_REG_GRP_R2 1
 #define HAL_SRNG_NUM_REG_GRP 2
 
-#define HAL_REO_REO2SW1_RING_BASE_MSB_RING_SIZE		0x000fffff
-#define HAL_REO_REO2TCL_RING_BASE_MSB_RING_SIZE		0x000fffff
-#define HAL_REO_SW2REO_RING_BASE_MSB_RING_SIZE		0x0000ffff
-#define HAL_REO_CMD_RING_BASE_MSB_RING_SIZE		0x0000ffff
-#define HAL_REO_STATUS_RING_BASE_MSB_RING_SIZE		0x0000ffff
-#define HAL_SW2TCL1_RING_BASE_MSB_RING_SIZE		0x000fffff
-#define HAL_SW2TCL1_CMD_RING_BASE_MSB_RING_SIZE		0x000fffff
-#define HAL_TCL_STATUS_RING_BASE_MSB_RING_SIZE		0x0000ffff
-#define HAL_CE_SRC_RING_BASE_MSB_RING_SIZE		0x0000ffff
-#define HAL_CE_DST_RING_BASE_MSB_RING_SIZE		0x0000ffff
-#define HAL_CE_DST_STATUS_RING_BASE_MSB_RING_SIZE	0x0000ffff
-#define HAL_WBM_IDLE_LINK_RING_BASE_MSB_RING_SIZE	0x0000ffff
-#define HAL_SW2WBM_RELEASE_RING_BASE_MSB_RING_SIZE	0x0000ffff
-#define HAL_WBM2SW_RELEASE_RING_BASE_MSB_RING_SIZE	0x000fffff
-#define HAL_RXDMA_RING_MAX_SIZE				0x0000ffff
+#define HAL_REO_REO2SW1_RING_BASE_MSB_RING_SIZE 0x000fffff
+#define HAL_REO_REO2TCL_RING_BASE_MSB_RING_SIZE 0x000fffff
+#define HAL_REO_SW2REO_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_REO_CMD_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_REO_STATUS_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_SW2TCL1_RING_BASE_MSB_RING_SIZE 0x000fffff
+#define HAL_SW2TCL1_CMD_RING_BASE_MSB_RING_SIZE 0x000fffff
+#define HAL_TCL_STATUS_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_CE_SRC_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_CE_DST_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_CE_DST_STATUS_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_WBM_IDLE_LINK_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_SW2WBM_RELEASE_RING_BASE_MSB_RING_SIZE 0x0000ffff
+#define HAL_WBM2SW_RELEASE_RING_BASE_MSB_RING_SIZE 0x000fffff
+#define HAL_RXDMA_RING_MAX_SIZE 0x0000ffff
 #define HAL_TEST_SW2HW_SIZE 0x0000ffff
 
 enum hal_srng_dir
@@ -79,17 +79,24 @@ enum hal_srng_dir
 };
 
 /* srng flags */
-#define HAL_SRNG_FLAGS_MSI_SWAP			0x00000008
-#define HAL_SRNG_FLAGS_RING_PTR_SWAP		0x00000010
-#define HAL_SRNG_FLAGS_DATA_TLV_SWAP		0x00000020
-#define HAL_SRNG_FLAGS_LOW_THRESH_INTR_EN	0x00010000
-#define HAL_SRNG_FLAGS_MSI_INTR			0x00020000
-#define HAL_SRNG_FLAGS_CACHED                   0x20000000
-#define HAL_SRNG_FLAGS_LMAC_RING		0x80000000
-#define HAL_SRNG_FLAGS_REMAP_CE_RING        0x10000000
+#define HAL_SRNG_FLAGS_MSI_SWAP 0x00000008
+#define HAL_SRNG_FLAGS_RING_PTR_SWAP 0x00000010
+#define HAL_SRNG_FLAGS_DATA_TLV_SWAP 0x00000020
+#define HAL_SRNG_FLAGS_LOW_THRESH_INTR_EN 0x00010000
+#define HAL_SRNG_FLAGS_MSI_INTR 0x00020000
+#define HAL_SRNG_FLAGS_CACHED 0x20000000
+#define HAL_SRNG_FLAGS_LMAC_RING 0x80000000
+#define HAL_SRNG_FLAGS_REMAP_CE_RING 0x10000000
 
-#define HAL_SRNG_TLV_HDR_TAG		GENMASK(9, 1)
-#define HAL_SRNG_TLV_HDR_LEN		GENMASK(25, 10)
+#define HAL_SRNG_TLV_HDR_TAG GENMASK(9, 1)
+#define HAL_SRNG_TLV_HDR_LEN GENMASK(25, 10)
+
+enum hal_ce_desc
+{
+    HAL_CE_DESC_SRC,
+    HAL_CE_DESC_DST,
+    HAL_CE_DESC_DST_STATUS,
+};
 
 /* Common SRNG ring structure for source and destination rings */
 struct hal_srng
@@ -217,6 +224,9 @@ enum hal_ring_type
     HAL_TEST_SRNG,
     HAL_TEST_SRNG_DST,
     HAL_TEST_SRNG_DST_STATUS,
+    HAL_CE_SRC,
+    HAL_CE_DST,
+    HAL_CE_DST_STATUS,
     // HAL_REO_DST,
     // HAL_REO_EXCEPTION,
     // HAL_REO_REINJECT,
@@ -225,9 +235,6 @@ enum hal_ring_type
     // HAL_TCL_DATA,
     // HAL_TCL_CMD,
     // HAL_TCL_STATUS,
-    // HAL_CE_SRC,
-    // HAL_CE_DST,
-    // HAL_CE_DST_STATUS,
     // HAL_WBM_IDLE_LINK,
     // HAL_SW2WBM_RELEASE,
     // HAL_WBM2SW_RELEASE,
@@ -261,7 +268,7 @@ struct hal_srng_params
  * 如果一个模块会用同时用到src和dst，那么需要给该模块的dst分配的ring_id应该大于实际二者中用到的ring的和，src也一样；
  * 即使会有ring_id的空置；
  * 因此为了不使ring_id空置，应该将用到src和dst的模块切成两个，分别调用初始化ring
- * 
+ *
  */
 enum hal_srng_ring_id
 {
@@ -285,44 +292,44 @@ enum hal_srng_ring_id
     // HAL_SRNG_RING_ID_SW2TCL_CMD = 24,
     // HAL_SRNG_RING_ID_TCL_STATUS,
 
-    // HAL_SRNG_RING_ID_CE0_SRC = 32,
-    // HAL_SRNG_RING_ID_CE1_SRC,
-    // HAL_SRNG_RING_ID_CE2_SRC,
-    // HAL_SRNG_RING_ID_CE3_SRC,
-    // HAL_SRNG_RING_ID_CE4_SRC,
-    // HAL_SRNG_RING_ID_CE5_SRC,
-    // HAL_SRNG_RING_ID_CE6_SRC,
-    // HAL_SRNG_RING_ID_CE7_SRC,
-    // HAL_SRNG_RING_ID_CE8_SRC,
-    // HAL_SRNG_RING_ID_CE9_SRC,
-    // HAL_SRNG_RING_ID_CE10_SRC,
-    // HAL_SRNG_RING_ID_CE11_SRC,
+    HAL_SRNG_RING_ID_CE0_SRC = 32,
+    HAL_SRNG_RING_ID_CE1_SRC,
+    HAL_SRNG_RING_ID_CE2_SRC,
+    HAL_SRNG_RING_ID_CE3_SRC,
+    HAL_SRNG_RING_ID_CE4_SRC,
+    HAL_SRNG_RING_ID_CE5_SRC,
+    HAL_SRNG_RING_ID_CE6_SRC,
+    HAL_SRNG_RING_ID_CE7_SRC,
+    HAL_SRNG_RING_ID_CE8_SRC,
+    HAL_SRNG_RING_ID_CE9_SRC,
+    HAL_SRNG_RING_ID_CE10_SRC,
+    HAL_SRNG_RING_ID_CE11_SRC,
 
-    // HAL_SRNG_RING_ID_CE0_DST = 56,
-    // HAL_SRNG_RING_ID_CE1_DST,
-    // HAL_SRNG_RING_ID_CE2_DST,
-    // HAL_SRNG_RING_ID_CE3_DST,
-    // HAL_SRNG_RING_ID_CE4_DST,
-    // HAL_SRNG_RING_ID_CE5_DST,
-    // HAL_SRNG_RING_ID_CE6_DST,
-    // HAL_SRNG_RING_ID_CE7_DST,
-    // HAL_SRNG_RING_ID_CE8_DST,
-    // HAL_SRNG_RING_ID_CE9_DST,
-    // HAL_SRNG_RING_ID_CE10_DST,
-    // HAL_SRNG_RING_ID_CE11_DST,
+    HAL_SRNG_RING_ID_CE0_DST = 56,
+    HAL_SRNG_RING_ID_CE1_DST,
+    HAL_SRNG_RING_ID_CE2_DST,
+    HAL_SRNG_RING_ID_CE3_DST,
+    HAL_SRNG_RING_ID_CE4_DST,
+    HAL_SRNG_RING_ID_CE5_DST,
+    HAL_SRNG_RING_ID_CE6_DST,
+    HAL_SRNG_RING_ID_CE7_DST,
+    HAL_SRNG_RING_ID_CE8_DST,
+    HAL_SRNG_RING_ID_CE9_DST,
+    HAL_SRNG_RING_ID_CE10_DST,
+    HAL_SRNG_RING_ID_CE11_DST,
 
-    // HAL_SRNG_RING_ID_CE0_DST_STATUS = 80,
-    // HAL_SRNG_RING_ID_CE1_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE2_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE3_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE4_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE5_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE6_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE7_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE8_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE9_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE10_DST_STATUS,
-    // HAL_SRNG_RING_ID_CE11_DST_STATUS,
+    HAL_SRNG_RING_ID_CE0_DST_STATUS = 80,
+    HAL_SRNG_RING_ID_CE1_DST_STATUS,
+    HAL_SRNG_RING_ID_CE2_DST_STATUS,
+    HAL_SRNG_RING_ID_CE3_DST_STATUS,
+    HAL_SRNG_RING_ID_CE4_DST_STATUS,
+    HAL_SRNG_RING_ID_CE5_DST_STATUS,
+    HAL_SRNG_RING_ID_CE6_DST_STATUS,
+    HAL_SRNG_RING_ID_CE7_DST_STATUS,
+    HAL_SRNG_RING_ID_CE8_DST_STATUS,
+    HAL_SRNG_RING_ID_CE9_DST_STATUS,
+    HAL_SRNG_RING_ID_CE10_DST_STATUS,
+    HAL_SRNG_RING_ID_CE11_DST_STATUS,
 
     HAL_SRNG_RING_ID_WBM_IDLE_LINK = 104,
     // HAL_SRNG_RING_ID_WBM_SW_RELEASE,
@@ -374,7 +381,7 @@ enum hal_srng_ring_id
  * 寄存器共占用 4 * 8 = 32 bit的地址
  * 高 16 bit 用来区分寄存器组好，例如 hal_srng 寄存器组的编号为 0x00010000
  * 低 16 bit 用于寄存器组内分配功能；
- * 
+ *
  * 在 hal_srng 组中的低16bit进行如下分配：
  * 高 8 bit 用来表示 ring_id 共支持 256 个ring
  * 低 8 bit 用来做每个ring的配置寄存器，每个寄存器大小为 4 char 占用 2bit 这样共有 64 个 32 bit的寄存器
@@ -383,9 +390,9 @@ enum hal_srng_ring_id
 #define HAL_SRNG_REG_BASE 0x00010000 // hal_srng 寄存器组基地址
 
 #define SRNG_TEST_PIPE_COUNT_MAX 1 // ring 数量
-// #define HAL_TEST_SRNG_REG_GRP (HAL_SRNG_REG_BASE | (HAL_SRNG_RING_ID_TEST_SW2HW << 8)) 
+// #define HAL_TEST_SRNG_REG_GRP (HAL_SRNG_REG_BASE | (HAL_SRNG_RING_ID_TEST_SW2HW << 8))
 // #define HAL_TEST_SRNG_REG_GRP_R0 HAL_TEST_SRNG_REG_GRP
-// #define HAL_TEST_SRNG_REG_GRP_R0_SIZE ((SRNG_TEST_PIPE_COUNT_MAX * HAL_SRNG_REG_R0_GROUP_SIZE) << 2) 
+// #define HAL_TEST_SRNG_REG_GRP_R0_SIZE ((SRNG_TEST_PIPE_COUNT_MAX * HAL_SRNG_REG_R0_GROUP_SIZE) << 2)
 // #define HAL_TEST_SRNG_REG_GRP_R2 (HAL_TEST_SRNG_REG_GRP_R0 + HAL_TEST_SRNG_REG_GRP_R0_SIZE)
 // #define HAL_TEST_SRNG_REG_GRP_R2_SIZE ((SRNG_TEST_PIPE_COUNT_MAX * HAL_SRNG_REG_R2_GROUP_SIZE) << 2)
 
@@ -442,26 +449,54 @@ struct wireless_simu_hal
     struct lock_class_key srng_key[HAL_SRNG_RING_ID_MAX];
 };
 
-struct hal_test_sw2hw{
+/* ce src desc 内容*/
+struct hal_ce_srng_src_desc
+{
     u32 buffer_addr_low;
-	u32 buffer_addr_info; /* %HAL_CE_SRC_DESC_ADDR_INFO_ */
-	u32 meta_info; /* %HAL_CE_SRC_DESC_META_INFO_ */
+    u32 buffer_addr_info; /* %HAL_CE_SRC_DESC_ADDR_INFO_ */
+    u32 meta_info;        /* %HAL_CE_SRC_DESC_META_INFO_ */
+    u32 flags;            /* %HAL_CE_SRC_DESC_FLAGS_ */
+} __packed;
+
+/* ce dst desc 内容 */
+struct hal_ce_srng_dest_desc
+{
+    u32 buffer_addr_low;
+    u32 buffer_addr_info; /* %HAL_CE_DEST_DESC_ADDR_INFO_ */
+} __packed;
+
+/* ce dst status 内容*/
+struct hal_ce_srng_dst_status_desc
+{
+    u32 flags; /* %HAL_CE_DST_STATUS_DESC_FLAGS_ */
+    u32 toeplitz_hash0;
+    u32 toeplitz_hash1;
+    u32 meta_info; /* HAL_CE_DST_STATUS_DESC_META_INFO_ */
+} __packed;
+
+struct hal_test_sw2hw
+{
+    u32 buffer_addr_low;
+    u32 buffer_addr_info; /* %HAL_CE_SRC_DESC_ADDR_INFO_ */
+    u32 meta_info;        /* %HAL_CE_SRC_DESC_META_INFO_ */
     u32 write_index;
     u32 flags; /* %HAL_CE_SRC_DESC_FLAGS_ */
-}__packed;
+} __packed;
 
 /* 设备上传至驱动的数据 */
-struct hal_test_dst_status{
+struct hal_test_dst_status
+{
     u32 buffer_length;
     u32 flag;
-}__packed;
+} __packed;
 
 /* 驱动下发至设备的数据 */
-struct hal_test_dst{
+struct hal_test_dst
+{
     u32 buffer_addr_low;
     u32 buffer_addr_info;
-    u32 flag; 
-}__packed;
+    u32 flag;
+} __packed;
 
 // 根据params调整hal_srng中对应ring_num的ring的详细内容
 int wireless_simu_hal_srng_setup(struct wireless_simu *priv, enum hal_ring_type type,
@@ -476,7 +511,7 @@ void wireless_simu_hal_srng_deinit(struct wireless_simu *priv);
 
 /*
  * hal srng test
- * 包含 创建srng、发送数据、删除srng*/ 
+ * 包含 创建srng、发送数据、删除srng*/
 void wireless_simu_hal_srng_test(struct wireless_simu *priv);
 
 /* start -- get -- end */
@@ -485,6 +520,8 @@ void wireless_simu_hal_srng_access_begin(struct wireless_simu *priv, struct hal_
 int wireless_simu_hal_srng_src_num_free(struct wireless_simu *priv, struct hal_srng *srng, bool sync_hw_ptr);
 
 void wireless_simu_hal_srng_access_end(struct wireless_simu *priv, struct hal_srng *srng);
+
+u32 *wireless_simu_hal_srng_src_reap_next(struct wireless_simu *priv, struct hal_srng *srng);
 
 u32 *wireless_simu_hal_srng_src_get_next_reaped(struct wireless_simu *priv, struct hal_srng *srng);
 
@@ -507,114 +544,117 @@ void wireless_simu_hal_srng_dst_test_deinit(struct wireless_simu *priv);
 /* srng test */
 #define SRNG_TEST_DESC_RING_ALIGN 8
 
+/* cd ALIGN */
+#define CE_DESC_RING_ALIGN 8
+
 struct srng_test_attr
 {
-	unsigned int flags;
+    unsigned int flags;
 
-	/* src entry 数量 */
-	unsigned int src_nentries;
+    /* src entry 数量 */
+    unsigned int src_nentries;
 
-	/* 每一个 entry 的最大大小, 虽然名为src, 但dst的也可以用这个参数来设定entry大小限制 */
-	unsigned int src_sz_max;
+    /* 每一个 entry 的最大大小, 虽然名为src, 但dst的也可以用这个参数来设定entry大小限制 */
+    unsigned int src_sz_max;
 
-	/* dst entry 数量 */
-	unsigned int dest_nentries;
+    /* dst entry 数量 */
+    unsigned int dest_nentries;
 
-	void (*recv_cb)(struct wireless_simu *priv, struct sk_buff *skb);
-	void (*send_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+    void (*recv_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+    void (*send_cb)(struct wireless_simu *priv, struct sk_buff *skb);
 };
 
 static const struct srng_test_attr srng_test_configs[] = {
-	{
-		.flags = 0,
-		.src_nentries = 32,
-		.src_sz_max = 2048,
-		.dest_nentries = 0,
-	},
+    {
+        .flags = 0,
+        .src_nentries = 32,
+        .src_sz_max = 2048,
+        .dest_nentries = 0,
+    },
 };
 
 /* 写这个的目的是将仅含有含有dst的模块与仅含有src的模块分离开进行初始化 */
 static const struct srng_test_attr srng_test_dst_configs[] = {
-	{
-		.flags = 0,
-		.dest_nentries = 32,
-		.src_sz_max = 2048, // 会根据这个值进行rx数据的dma分配
-		.src_nentries = 0,
-	},
+    {
+        .flags = 0,
+        .dest_nentries = 32,
+        .src_sz_max = 2048, // 会根据这个值进行rx数据的dma分配
+        .src_nentries = 0,
+    },
 };
 
 struct srng_test_ring
 {
-	/* ring 中 entries 数量 */
-	unsigned int nentries;
-	unsigned int nentries_mask;
+    /* ring 中 entries 数量 */
+    unsigned int nentries;
+    unsigned int nentries_mask;
 
-	/* 对 src 环，该 index 指向最后一个被放入 ring 的 descriptor ;
-	 *
-	 * 对 dst 环， 该index 指向下一个需要被处理的entry;
-	 * */
-	unsigned int sw_index;
+    /* 对 src 环，该 index 指向最后一个被放入 ring 的 descriptor ;
+     *
+     * 对 dst 环， 该index 指向下一个需要被处理的entry;
+     * */
+    unsigned int sw_index;
 
-	unsigned int write_index;
+    unsigned int write_index;
 
-	/* 为 entries alloc 的 memory 空间*/
-	/* 逻辑内存地址 */
-	void *base_addr_owner_space_unaligned;
-	/* 物理内存地址 */
-	dma_addr_t base_addr_test_space_unaligned;
-    
+    /* 为 entries alloc 的 memory 空间*/
+    /* 逻辑内存地址 */
+    void *base_addr_owner_space_unaligned;
+    /* 物理内存地址 */
+    dma_addr_t base_addr_test_space_unaligned;
+
     /* dma malloc size */
     size_t dma_size;
 
-	/* 经由内存对齐之后的，为 entries alloc 的 memory 地址
-	 * 这就产生了问题，当使用ALIGN进行对齐的时候，一方面会导致void *被修改，使整个内存空间变少，另一个dmaaddr和void *未必有关联，那万一一个改了另一个没改不就发生冲突了吗？*/
-	/* 逻辑内存地址 */
-	void *base_addr_owner_space;
-	/* 物理内存地址 */
-	dma_addr_t base_addr_test_space;
+    /* 经由内存对齐之后的，为 entries alloc 的 memory 地址
+     * 这就产生了问题，当使用ALIGN进行对齐的时候，一方面会导致void *被修改，使整个内存空间变少，另一个dmaaddr和void *未必有关联，那万一一个改了另一个没改不就发生冲突了吗？*/
+    /* 逻辑内存地址 */
+    void *base_addr_owner_space;
+    /* 物理内存地址 */
+    dma_addr_t base_addr_test_space;
 
-	/* hal ring id */
-	u32 hal_ring_id;
+    /* hal ring id */
+    u32 hal_ring_id;
 
-	/* keep last */
-	struct sk_buff *skb[];
+    /* keep last */
+    struct sk_buff *skb[];
 };
 
 struct srng_test_pipe
 {
-	struct wireless_simu *priv;
-	u16 pipe_num;
-	unsigned int attr_flags;
-	unsigned int buf_sz;
-	unsigned int rx_buf_needed;
+    struct wireless_simu *priv;
+    u16 pipe_num;
+    unsigned int attr_flags;
+    unsigned int buf_sz;
+    unsigned int rx_buf_needed;
 
-	void (*recv_cb)(struct wireless_simu *priv, struct sk_buff *skb);
-	void (*send_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+    void (*recv_cb)(struct wireless_simu *priv, struct sk_buff *skb);
+    void (*send_cb)(struct wireless_simu *priv, struct sk_buff *skb);
 
-	struct tasklet_struct intr_tq;
+    struct tasklet_struct intr_tq;
 
     /* 向hw传输数据 */
-	struct srng_test_ring *src_ring;
-	
+    struct srng_test_ring *src_ring;
+
     /* 填充sw中申请的dma地址 */
     struct srng_test_ring *dst_ring;
-	
+
     /* 填充有rx的数据 */
     struct srng_test_ring *status_ring;
 
-	u64 timestamp;
+    u64 timestamp;
 };
 
 struct srng_test
 {
-	struct wireless_simu *priv;
-    
+    struct wireless_simu *priv;
+
     /* 下方pipes 的数量 */
     int pipes_count;
-    
-	struct srng_test_pipe pipes[SRNG_TEST_PIPE_COUNT_MAX];
-	struct srng_test_attr *host_config;
-	spinlock_t srng_test_lock;
+
+    struct srng_test_pipe pipes[SRNG_TEST_PIPE_COUNT_MAX];
+    struct srng_test_attr *host_config;
+    spinlock_t srng_test_lock;
 
     /* 超时处理
      * pipe 的 dst 中空位不足时，使用该数据来保证过一段时间后重试 */
