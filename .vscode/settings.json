@@ -1,5 +1,7 @@
 {
     "files.associations": {
+        "*.ndjson": "jsonl",
+        "*.dbclient-js": "javascript",
         "module.h": "c",
         "platform_device.h": "c",
         "array": "c",
@@ -36,7 +38,8 @@
         "glib-typeof.h": "c",
         "skbuff.h": "c",
         "shared_mutex": "c",
-        "wireless_dma.h": "c"
+        "wireless_dma.h": "c",
+        "wireless_wmi.h": "c"
     },
     "search.exclude": {
         "**/node_modules": true,
