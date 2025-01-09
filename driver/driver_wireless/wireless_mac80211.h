@@ -2,19 +2,16 @@
 #define WIRELESS_MAC80211
 
 #include "wireless.h"
-#include <net/mac80211.h>
+#include "wireless_wmi.h"
 
-struct wireless_simu;
+enum wmi_vdev_subtype;
+enum wmi_vdev_type;
 
 #define WIRELESS_SIMU_HW_QUEUE 4
 
-enum wireless_simu_err_code
-wireless_mac80211_core_probe(struct wireless_simu *priv);
-
-int wireless_mac80211_core_remove(struct wireless_simu *priv);
-
 // 80211帧加密方式，使用枚举单独列出便于firmware端同步
-enum hal_encrypt_type {
+enum hal_encrypt_type
+{
 	HAL_ENCRYPT_TYPE_WEP_40,
 	HAL_ENCRYPT_TYPE_WEP_104,
 	HAL_ENCRYPT_TYPE_TKIP_NO_MIC,
@@ -29,26 +26,31 @@ enum hal_encrypt_type {
 	HAL_ENCRYPT_TYPE_WAPI_GCM_SM4,
 };
 
-enum wireless_simu_skb_cb_flags {
+enum wireless_simu_skb_cb_flags
+{
 	WIRELESS_SIMU_SKB_HW_80211_ENCAP = BIT(0),
 	WIRELESS_SIMU_SKB_CIPHER_SET = BIT(1),
 };
 
-struct wireless_simu_skb_cb{
+struct wireless_skb_cb
+{
+	struct wireless_simu *priv;
 	dma_addr_t paddr;
 	u8 flags;
+	u8 eid;
 	u32 cipher;
 	struct ieee80211_vif *vif;
-}__packed;
+} __packed;
 
-static inline struct wireless_simu_skb_cb *WIRELESS_SIMU_SKB_CB(struct sk_buff *skb)
+static inline struct wireless_skb_cb *WIRELESS_SKB_CB(struct sk_buff *skb)
 {
-	BUILD_BUG_ON(sizeof(struct wireless_simu_skb_cb) > 
-		IEEE80211_TX_INFO_DRIVER_DATA_SIZE);
-	return (struct wireless_simu_skb_cb *)&IEEE80211_SKB_CB(skb)->driver_data;
+	BUILD_BUG_ON(sizeof(struct wireless_skb_cb) >
+				 IEEE80211_TX_INFO_DRIVER_DATA_SIZE);
+	return (struct wireless_skb_cb *)&IEEE80211_SKB_CB(skb)->driver_data;
 }
 
-struct wireless_simu_tx_params_arg {
+struct wireless_simu_tx_params_arg
+{
 	u8 acm;
 	u8 aifs;
 	u16 cwmin;
@@ -59,13 +61,17 @@ struct wireless_simu_tx_params_arg {
 
 struct wireless_simu_vif
 {
+	u32 vdev_id;
+	enum wmi_vdev_type vdev_type;
+	enum wmi_vdev_subtype vdev_subtype;
+
 	struct wireless_simu *priv;
+	struct ieee80211_vif *vif;
 	int vif_id;
 	struct wireless_simu_tx_params_arg ac_be;
 	struct wireless_simu_tx_params_arg ac_bk;
 	struct wireless_simu_tx_params_arg ac_vi;
 	struct wireless_simu_tx_params_arg ac_vo;
-
 };
 
 struct wireless_simu_sta
@@ -73,9 +79,9 @@ struct wireless_simu_sta
 	struct wireless_simu *priv;
 };
 
-#define REG_RULES { \
-	REG_RULE(2412-10, 2412+10, 40, 0, 20, NL80211_RRF_NO_CCK), \
-	REG_RULE(5160-10, 5865+10, 80, 0, 20, 0), \
+#define REG_RULES {                                                \
+	REG_RULE(2412 - 10, 2412 + 10, 40, 0, 20, NL80211_RRF_NO_CCK), \
+	REG_RULE(5160 - 10, 5865 + 10, 80, 0, 20, 0),                  \
 }
 
 static const struct ieee80211_reg_rule wireless_simu_reg_rules[] = REG_RULES;
@@ -296,5 +302,14 @@ static struct ieee80211_rate wireless_simu_rates[] = {
 #define wireless_simu_g_rates_size (ARRAY_SIZE(wireless_simu_rates))
 #define wireless_simu_a_rates (wireless_simu_rates + WIRELESS_SIMU_MAC_FIRST_OFDM_RATE_IDX)
 #define wireless_simu_a_rates_size (ARRAY_SIZE(wireless_simu_rates) - WIRELESS_SIMU_MAC_FIRST_OFDM_RATE_IDX)
+
+enum wireless_simu_err_code
+wireless_mac80211_core_probe(struct wireless_simu *priv);
+
+int wireless_mac80211_core_remove(struct wireless_simu *priv);
+
+int wireless_mac80211_wait_tx_complete(struct wireless_simu *priv);
+
+void wireless_mac80211_drain_tx(struct wireless_simu *priv);
 
 #endif /*WIRELESS_MAC80211*/

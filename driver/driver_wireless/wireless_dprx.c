@@ -2,7 +2,8 @@
 
 int wireless_simu_dp_rx_crypto_mic_len(struct wireless_simu *priv, enum hal_encrypt_type enctype)
 {
-	switch (enctype) {
+	switch (enctype)
+	{
 	case HAL_ENCRYPT_TYPE_OPEN:
 	case HAL_ENCRYPT_TYPE_TKIP_NO_MIC:
 	case HAL_ENCRYPT_TYPE_TKIP_MIC:

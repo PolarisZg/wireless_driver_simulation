@@ -15,7 +15,7 @@ static void wireless_simu_mac_rx(int irq, struct wireless_simu *priv)
     // 调度启动一个作业
 }
 
-static void wireless_simu_mgmt_over_tx_drop(struct wireless_simu *priv, struct sk_buff *skb)
+static void wireless_mgmt_over_wmi_tx_drop(struct wireless_simu *priv, struct sk_buff *skb)
 {
     int num_mgmt;
 
@@ -26,6 +26,11 @@ static void wireless_simu_mgmt_over_tx_drop(struct wireless_simu *priv, struct s
     if (num_mgmt < 0)
         WARN_ON_ONCE(1);
 
+    /* 唤醒等待在 txmgmt_empty_waitq 的线程,
+     * 其他线程可以使用
+     * wait_event_timeout(priv->txmgmt_empty_waitq, ...)
+     * 在该等待队列中等待
+     */
     if (!num_mgmt)
         wake_up(&priv->txmgmt_empty_waitq);
 }
@@ -33,7 +38,7 @@ static void wireless_simu_mgmt_over_tx_drop(struct wireless_simu *priv, struct s
 static int wireless_simu_mgmt_tx_wmi(struct wireless_simu *priv, struct wireless_simu_vif *simu_vif, struct sk_buff *skb)
 {
     struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-    struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
+    struct wireless_skb_cb *skb_cb = WIRELESS_SKB_CB(skb);
     struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
     enum hal_encrypt_type enctype;
     unsigned int mic_length;
@@ -41,11 +46,15 @@ static int wireless_simu_mgmt_tx_wmi(struct wireless_simu *priv, struct wireless
     int ret = 0;
     dma_addr_t paddr;
 
-    // 统计id
+    skb_cb->priv = priv;
+
+    /* 统计 skb 的 id, 该 id 的上限由 WIRELESS_SIMU_TX_MGMT_NUM_PENDING_MAX 确定 */
     spin_lock_bh(&priv->txmgmt_idr_lock);
     buf_id = idr_alloc(&priv->txmgmt_idr, skb, 0, WIRELESS_SIMU_TX_MGMT_NUM_PENDING_MAX, GFP_ATOMIC);
     spin_unlock_bh(&priv->txmgmt_idr_lock);
+
     pr_info("%s : mac tx mgmt id %d \n", WIRELESS_SIMU_DEVICE_NAME, buf_id);
+
     if (buf_id < 0)
         return -ENOSPC;
 
@@ -57,10 +66,9 @@ static int wireless_simu_mgmt_tx_wmi(struct wireless_simu *priv, struct wireless
              ieee80211_is_deauth(hdr->frame_control) ||
              ieee80211_is_disassoc(hdr->frame_control)))
         {
-            if (!(info->control.hw_key))
-            {
-                pr_info("%s : mac mgmt tx no key encrypt \n", WIRELESS_SIMU_DEVICE_NAME);
-            }
+            if (!(skb_cb->flags & WIRELESS_SIMU_SKB_CIPHER_SET))
+                pr_info("%s : WMI management tx frame without ATH11K_SKB_CIPHER_SET \n", WIRELESS_SIMU_DEVICE_NAME);
+
             enctype = wireless_simu_dp_tx_get_encrypt_type(skb_cb->cipher);
             mic_length = wireless_simu_dp_rx_crypto_mic_len(priv, enctype);
             skb_put(skb, mic_length);
@@ -78,11 +86,11 @@ static int wireless_simu_mgmt_tx_wmi(struct wireless_simu *priv, struct wireless
 
     skb_cb->paddr = paddr;
 
-    // 发送到wmi 层
+    // 发送到 wmi 层
     ret = wireless_simu_wmi_mgmt_send(priv, simu_vif->vif_id, buf_id, skb);
     if (ret)
     {
-        pr_info("%s : mac mgmt %d tx fail to wmi %d\n", WIRELESS_SIMU_DEVICE_NAME, buf_id, ret);
+        pr_warn("%s : fail to send mgmt frame %d\n", WIRELESS_SIMU_DEVICE_NAME, ret);
         goto err_unmap_buf;
     }
 
@@ -99,27 +107,44 @@ err_free_idr:
     return ret;
 }
 
-static void wireless_simu_mgmt_tx_work_func(struct work_struct *work)
+static void wireless_mgmt_over_wmi_tx_work(struct work_struct *work)
 {
-    pr_info("%s : mac mgmt tx work start \n", WIRELESS_SIMU_DEVICE_NAME);
+    // pr_info("%s : mac mgmt tx work start \n", WIRELESS_SIMU_DEVICE_NAME);
     struct wireless_simu *priv = container_of(work, struct wireless_simu, mgmt_tx_work);
-    struct sk_buff *skb;
-    struct wireless_simu_skb_cb *skb_cb;
+    struct sk_buff *skb = NULL;
+    struct wireless_skb_cb *skb_cb;
     struct wireless_simu_vif *simu_vif;
     int ret;
+
     while ((skb = skb_dequeue(&priv->mgmt_tx_queue)) != NULL)
     {
-        skb_cb = WIRELESS_SIMU_SKB_CB(skb);
+        skb_cb = WIRELESS_SKB_CB(skb);
         if (!skb_cb->vif)
         {
             pr_err("%s : no vif find in skb \n", WIRELESS_SIMU_DEVICE_NAME);
-            wireless_simu_mgmt_over_tx_drop(priv, skb);
+            wireless_mgmt_over_wmi_tx_drop(priv, skb);
             continue;
         }
 
-        simu_vif = (struct wireless_simu_vif *)skb_cb->vif->drv_priv;
+        simu_vif = wireless_vif_to_wivif(skb_cb->vif);
         mutex_lock(&priv->mac_conf_mutex);
+
+        /* todo : 需要判断 simu_vif 中 vdev 是否存在且被分配空间
+         * 一般来说分配空间和释放空间的操作存在于 add _interface 和 del_interface 之中
+         */
         ret = wireless_simu_mgmt_tx_wmi(priv, simu_vif, skb);
+        if (ret)
+        {
+            /* todo : 在还没有确定下 vdev 的含义之前, 暂时使用 vif 来代替
+             */
+            pr_warn("%s : fail to tx mgmt frame vif id %d : %d \n", WIRELESS_SIMU_DEVICE_NAME, simu_vif->vif_id, ret);
+            wireless_mgmt_over_wmi_tx_drop(priv, skb);
+        }
+        else
+        {
+            pr_info("%s : tx mgmt frame vif %d \n", WIRELESS_SIMU_DEVICE_NAME, simu_vif->vif_id);
+        }
+
         mutex_unlock(&priv->mac_conf_mutex);
     }
 }
@@ -127,6 +152,10 @@ static void wireless_simu_mgmt_tx_work_func(struct work_struct *work)
 static int wireless_simu_mac_mgmt_tx(struct wireless_simu *priv, struct sk_buff *skb, bool is_prb_rsp)
 {
     struct sk_buff_head *q = &priv->mgmt_tx_queue;
+
+    /* 判断当前设备状态, 当前设备故障则中止发送
+     * 而设备的故障信息是通过 qmi 通道发送过来的
+     */
 
     /*
      * 应该优先保证response之外的mgmt帧发送，因此将rsp帧抽出来单独统计
@@ -145,8 +174,8 @@ static int wireless_simu_mac_mgmt_tx(struct wireless_simu *priv, struct sk_buff 
 
     skb_queue_tail(q, skb);
     atomic_inc(&priv->num_pending_mgmt_tx);
-    queue_work(priv->workqueue_aux, &priv->mgmt_tx_work);
-    pr_info("%s : mac mgmt tx in queue \n", WIRELESS_SIMU_DEVICE_NAME);
+    queue_work(priv->workqueue_aux, &priv->mgmt_tx_work); // 转发到 wireless_mgmt_over_wmi_tx_work
+    // pr_info("%s : mac mgmt tx in queue \n", WIRELESS_SIMU_DEVICE_NAME);
 
     return 0;
 }
@@ -156,13 +185,15 @@ static void wireless_mac80211_tx(struct ieee80211_hw *dev,
                                  struct sk_buff *skb)
 {
     struct wireless_simu *priv = (struct wireless_simu *)dev->priv;
-    struct wireless_simu_skb_cb *skb_cb = WIRELESS_SIMU_SKB_CB(skb);
+    struct wireless_skb_cb *skb_cb = WIRELESS_SKB_CB(skb);
     struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
     struct ieee80211_key_conf *key = info->control.hw_key;
     struct ieee80211_vif *vif = info->control.vif;
-    struct wireless_simu_vif *simu_vif = (struct wireless_simu_vif *)vif->drv_priv;
+    struct wireless_simu_vif *wivif = (struct wireless_simu_vif *)vif->drv_priv;
     struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+    struct wireless_simu_sta *wista = NULL;
     u32 info_flags = info->flags;
+    bool is_prb_rsp;
     int ret = 0;
 
     memset(skb_cb, 0, sizeof(*skb_cb));
@@ -180,7 +211,7 @@ static void wireless_mac80211_tx(struct ieee80211_hw *dev,
     }
     else if (ieee80211_is_mgmt(hdr->frame_control))
     {
-        bool is_prb_rsp = ieee80211_is_probe_resp(hdr->frame_control);
+        is_prb_rsp = ieee80211_is_probe_resp(hdr->frame_control);
         ret = wireless_simu_mac_mgmt_tx(priv, skb, is_prb_rsp);
         if (ret)
         {
@@ -188,6 +219,19 @@ static void wireless_mac80211_tx(struct ieee80211_hw *dev,
             ieee80211_free_txskb(priv->hw, skb);
         }
         return;
+    }
+
+    // 非 mgmt 的发送
+    if (control->sta)
+    {
+        wista = wireless_sta_to_wista(control->sta);
+    }
+
+    ret = wireless_dp_tx(priv, wivif, wista, skb);
+    if (unlikely(ret))
+    {
+        pr_err("%s : fail to transmit frame %d \n", WIRELESS_SIMU_DEVICE_NAME, ret);
+        ieee80211_free_txskb(priv->hw, skb);
     }
 }
 
@@ -560,7 +604,7 @@ wireless_mac80211_core_probe(struct wireless_simu *priv)
     SET_IEEE80211_DEV(hw, &priv->pci_dev->dev);
 
     // 对mgmt tx work相关组件的初始化
-    INIT_WORK(&priv->mgmt_tx_work, wireless_simu_mgmt_tx_work_func);
+    INIT_WORK(&priv->mgmt_tx_work, wireless_mgmt_over_wmi_tx_work);
     skb_queue_head_init(&priv->mgmt_tx_queue);
 
     // priv->hw->max_rates = 1; // 最大速率重试次数，感觉没什么用
@@ -685,6 +729,21 @@ err_end:
     return err;
 }
 
+void wireless_mac80211_drain_tx(struct wireless_simu *priv)
+{
+    synchronize_net();
+
+    cancel_work_sync(&priv->mgmt_tx_work);
+    // todo : 删除 mgmt 队列中的 skb
+}
+
+int wireless_mac80211_wait_tx_complete(struct wireless_simu *priv)
+{
+    wireless_mac80211_drain_tx(priv);
+    // todo : 这里应当等待上述删除 skb 的过程
+    return 0;
+}
+
 int wireless_mac80211_core_remove(struct wireless_simu *priv)
 {
     struct ieee80211_hw *hw = priv->hw;
@@ -695,6 +754,7 @@ int wireless_mac80211_core_remove(struct wireless_simu *priv)
     }
 
     ieee80211_unregister_hw(hw);
+
     ieee80211_free_hw(hw);
     return 0;
 }

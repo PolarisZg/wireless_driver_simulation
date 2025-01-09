@@ -1,4 +1,4 @@
-#include "wireless.h"
+#include "wireless_dptx.h"
 
 enum hal_encrypt_type wireless_simu_dp_tx_get_encrypt_type(u32 cipher)
 {
@@ -21,4 +21,11 @@ enum hal_encrypt_type wireless_simu_dp_tx_get_encrypt_type(u32 cipher)
     default:
         return HAL_ENCRYPT_TYPE_OPEN;
     }
+}
+
+int wireless_dp_tx(struct wireless_simu *priv, struct wireless_simu_vif *wivif, struct wireless_simu_sta *wista, struct sk_buff *skb)
+{
+    int ret = 0;
+
+    return ret;
 }
