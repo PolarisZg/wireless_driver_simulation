@@ -32,3 +32,4 @@ uboot.elf
 *.tar
 *.ext3
 *.etx3
+*.log
