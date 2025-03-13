@@ -258,12 +258,12 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
     }
     pr_info("%s : ce ring init succeed \n", WIRELESS_SIMU_DEVICE_NAME);
 
-    ret = wireless_simu_ce_init_pipes(priv);
-    if (ret)
-    {
-        goto End;
-    }
-    pr_info("%s : ce pipes init succeed \n", WIRELESS_SIMU_DEVICE_NAME);
+    // ret = wireless_simu_ce_init_pipes(priv);
+    // if (ret)
+    // {
+    //     goto End;
+    // }
+    // pr_info("%s : ce pipes init succeed \n", WIRELESS_SIMU_DEVICE_NAME);
 
     // wireless_simu_hal_srng_dst_test_init(priv); // 先初始化dst ring
 
