@@ -1,5 +1,11 @@
 #include "wireless_mac80211.h"
 
+void wireless_sample_send_cb(struct wireless_simu *priv, struct sk_buff *skb)
+{
+    pr_info("%s : sample send cb end \n", WIRELESS_SIMU_DEVICE_NAME);
+}
+EXPORT_SYMBOL(wireless_sample_send_cb);
+
 static void wireless_simu_mac_tx_end(int irq, struct wireless_simu *priv)
 {
     // 取出skb，或者其他东西，比如tx_info, ack 状态之类的
@@ -158,6 +164,12 @@ static int wireless_simu_mac_mgmt_tx(struct wireless_simu *priv, struct sk_buff 
      */
 
     /*
+     * 打印发送的 mgmt 类型
+     */
+    u16 mgmt_frame_type = le16_to_cpu(((struct ieee80211_hdr *)skb->data)->frame_control);
+    pr_info("%s : mgmt tx %04x type frame \n", WIRELESS_SIMU_DEVICE_NAME, mgmt_frame_type);
+
+    /*
      * 应该优先保证response之外的mgmt帧发送，因此将rsp帧抽出来单独统计
      */
     if (is_prb_rsp && atomic_read(&priv->num_pending_mgmt_tx) > WIRELESS_SIMU_PRB_RSP_DROP_THRESHOLD)
@@ -235,6 +247,80 @@ static void wireless_mac80211_tx(struct ieee80211_hw *dev,
     }
 }
 
+inline void report_pkt_loss_due_to_driver_drop(struct ieee80211_hw *dev, struct sk_buff *skb)
+{
+    struct wireless_simu *priv = dev->priv;
+    struct ieee80211_tx_info *info;
+
+    info = IEEE80211_SKB_CB(skb);
+    ieee80211_tx_info_clear_status(info);
+    info->status.rates[0].count = 1;
+    info->status.rates[1].idx = -1;
+    info->status.antenna = priv->simu_simple.runtime_tx_ant_cfg;
+    ieee80211_tx_status_irqsafe(dev, skb);
+}
+
+static void simu_simple_tx(struct ieee80211_hw *dev, struct ieee80211_tx_control *control, struct sk_buff *skb)
+{
+    pr_info("%s : simple tx start \n", WIRELESS_SIMU_DEVICE_NAME);
+    // goto simu_simple_tx_early_out;
+
+    struct wireless_simu *priv = dev->priv;
+    // unsigned long flags;
+    // struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+    struct wireless_skb_cb *skb_cb = WIRELESS_SKB_CB(skb);
+    // struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+    u16 len_mpdu;
+    u16 prio;
+    // u32 addr_low32;
+    int ret;
+
+    memset(skb_cb, 0, sizeof(*skb_cb));
+
+    // 不去传输被仍是链表状态的skb
+    if (skb->data_len > 0)
+    {
+        pr_info("%s : tx : WARNING skb->data_len > 0 \n", WIRELESS_SIMU_DEVICE_NAME);
+        goto simu_simple_tx_early_out;
+    }
+
+    len_mpdu = skb->len;
+
+    // 不去传输队列号太高的 skb
+    prio = skb_get_queue_mapping(skb);
+    if (prio > WIRELESS_SIMU_HW_QUEUE)
+    {
+        pr_info("%s : tx : queue more %04x", WIRELESS_SIMU_DEVICE_NAME, prio);
+        goto simu_simple_tx_early_out;
+    }
+
+    /* 不去理解后面的步骤, 也不对mgmt和data区分, 直接发包 */
+    /* 借用一下 CE 的 srng 去发包 */
+    /* 不需要对 skb 做缓存, 因为在 pipe 中已经将 skb 缓存到了 write_index 的地方
+     * 只需要在硬件传输完毕后从 tp 处开始读取就好了
+     */
+    skb_cb->paddr = dma_map_single(&priv->pci_dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
+
+    if(dma_mapping_error(&priv->pci_dev->dev, skb_cb->paddr)){
+        pr_info("%s : simu_simple_tx dma map err \n", WIRELESS_SIMU_DEVICE_NAME);
+        goto simu_simple_tx_early_out;
+    }
+    ret = wireless_simu_ce_send(priv, skb, 2, 0);
+    if (ret != 0)
+    {
+        pr_info("%s : simu_simple tx send err %d \n", WIRELESS_SIMU_DEVICE_NAME, ret);
+        goto simu_simple_tx_dma_free;
+    }
+
+    pr_info("%s : pkt tx succeed \n", WIRELESS_SIMU_DEVICE_NAME);
+    return;
+
+simu_simple_tx_dma_free:
+    dma_unmap_single(&priv->pci_dev->dev, skb_cb->paddr, skb->len, DMA_TO_DEVICE);
+simu_simple_tx_early_out:
+    report_pkt_loss_due_to_driver_drop(dev, skb);
+}
+
 static int wireless_mac80211_start(struct ieee80211_hw *hw)
 {
     pr_info("%s : mac80211 start \n", WIRELESS_SIMU_DEVICE_NAME);
@@ -257,6 +343,7 @@ static int wireless_mac80211_start(struct ieee80211_hw *hw)
     pr_info("%s : mac80211 start done \n", WIRELESS_SIMU_DEVICE_NAME);
     return 0;
 }
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 static void wireless_mac80211_stop(struct ieee80211_hw *hw, bool suspend)
 #else
@@ -283,6 +370,29 @@ static void wireless_mac80211_stop(struct ieee80211_hw *hw)
     pr_info("%s : mac80211 stop done \n", WIRELESS_SIMU_DEVICE_NAME);
 }
 
+static void simu_simple_beacon_work(struct work_struct *work)
+{
+    struct wireless_simu_vif *vif_priv = container_of(work, struct wireless_simu_vif, simu_simple.beacon_work.work);
+    struct wireless_simu *priv = vif_priv->priv;
+    struct ieee80211_vif *vif = vif_priv->vif;
+    struct ieee80211_hw *dev = priv->hw;
+    struct ieee80211_mgmt *mgmt;
+    struct sk_buff *skb;
+
+    skb = ieee80211_beacon_get(dev, vif, 0);
+    if (!skb)
+        goto resched;
+
+    mgmt = (struct ieee80211_mgmt *)skb->data;
+    mgmt->u.beacon.timestamp = cpu_to_le64(ktime_get_ns() / 1000);
+
+    skb_set_queue_mapping(skb, 0);
+    simu_simple_tx(dev, NULL, skb);
+
+resched:
+    schedule_delayed_work(&vif_priv->simu_simple.beacon_work, usecs_to_jiffies(1024 * vif->bss_conf.beacon_int));
+}
+
 static int wireless_mac80211_add_interface(struct ieee80211_hw *hw,
                                            struct ieee80211_vif *vif)
 {
@@ -303,20 +413,23 @@ static int wireless_mac80211_add_interface(struct ieee80211_hw *hw,
     if (vif_id == ARRAY_SIZE(priv->vif))
     {
         pr_err("%s : cannt add interface no more space \n", WIRELESS_SIMU_DEVICE_NAME);
+        mutex_unlock(&priv->mac_conf_mutex);
         return -EBUSY;
     }
     priv->vif[vif_id] = vif;
     simu_vif->vif_id = vif_id;
     simu_vif->priv = priv;
+    simu_vif->vif = vif;
 
-    if (vif->type != NL80211_IFTYPE_STATION || vif->type != NL80211_IFTYPE_AP || vif->type != NL80211_IFTYPE_MONITOR)
+    if (vif->type != NL80211_IFTYPE_STATION && vif->type != NL80211_IFTYPE_AP && vif->type != NL80211_IFTYPE_MONITOR)
     {
         mutex_unlock(&priv->mac_conf_mutex);
+        pr_err("%s : add interface %d type invalid \n", WIRELESS_SIMU_DEVICE_NAME, vif->type);
         return -EINVAL;
     }
 
-    // 设置队列id, 因为之前设置了hw的flag IEEE80211_HW_QUEUE_CONTROL
-    pr_info("%s : add interface %d type \n", WIRELESS_SIMU_DEVICE_NAME, vif->type);
+    // // 设置队列id, 因为之前设置了hw的flag IEEE80211_HW_QUEUE_CONTROL
+    // pr_info("%s : add interface %d type \n", WIRELESS_SIMU_DEVICE_NAME, vif->type);
 
     for (int i = 0; i < ARRAY_SIZE(vif->hw_queue); i++)
         vif->hw_queue[i] = i % (WIRELESS_SIMU_HW_QUEUE - 1); // 这里我也不懂为什么要减一
@@ -327,6 +440,11 @@ static int wireless_mac80211_add_interface(struct ieee80211_hw *hw,
         vif->cab_queue = IEEE80211_INVAL_HW_QUEUE;
 
     // 之后是一些我看不懂的硬件配置
+
+    INIT_DELAYED_WORK(&simu_vif->simu_simple.beacon_work, simu_simple_beacon_work);
+
+    pr_info("%s : add infc idx %d addr %02x:%02x:%02x:%02x:%02x:%02x\n", WIRELESS_SIMU_DEVICE_NAME, simu_vif->vif_id,
+            vif->addr[0], vif->addr[1], vif->addr[2], vif->addr[3], vif->addr[4], vif->addr[5]);
 
     mutex_unlock(&priv->mac_conf_mutex);
     return 0;
@@ -342,13 +460,16 @@ static void wireless_mac80211_remove_interface(struct ieee80211_hw *hw,
     // 没有什么删除的操作，底层firmware没有和上层mac80211子系统中interface对应的模块
     // 只需要在驱动中删除对应的interface缓存即可
     priv->vif[simu_vif->vif_id] = NULL;
-    pr_info("%s : mac remove interface %d type %d \n", WIRELESS_SIMU_DEVICE_NAME, simu_vif->vif_id, vif->type);
+    pr_info("%s : mac remove interface idx %d type %d \n", WIRELESS_SIMU_DEVICE_NAME, simu_vif->vif_id, vif->type);
     mutex_unlock(&priv->mac_conf_mutex);
 }
 
 static int wireless_mac80211_config(struct ieee80211_hw *hw,
                                     u32 changed)
 {
+    struct ieee80211_conf *conf = &hw->conf;
+    pr_info("%s : mac_config flag %08x \n", WIRELESS_SIMU_DEVICE_NAME, changed);
+    // pr_info("%s : mac_config center_freq %08x width %d \n", WIRELESS_SIMU_DEVICE_NAME, conf->chandef.chan->center_freq, conf->chandef.width);
     return 0;
 }
 
@@ -388,6 +509,60 @@ static void wireless_mac80211_bss_info_changed(struct ieee80211_hw *hw,
                                                struct ieee80211_bss_conf *info,
                                                u64 changed)
 {
+    // bss 变化
+    /* 具体的哪种 bss 变化由 changed 给出 */
+
+    struct wireless_simu *priv = (struct wireless_simu *)hw->priv;
+    struct wireless_simu_vif *vif_priv = (struct wireless_simu_vif *)vif->drv_priv;
+
+    if (changed & BSS_CHANGED_BSSID)
+    {
+        // 该 sta 所在的 bss id 被修改
+        // 所谓 BSSID 实际就是 mac 地址吧
+        pr_info("%s : bss info changed BSSID to %02x:%02x:%02x:%02x:%02x:%02x \n", WIRELESS_SIMU_DEVICE_NAME, info->bssid[0], info->bssid[1], info->bssid[2], info->bssid[3], info->bssid[4], info->bssid[5]);
+
+        vif_priv->simu_simple.bssid_low = (*((u32 *)(info->bssid)));
+        vif_priv->simu_simple.bssid_hi = (*((u16 *)(info->bssid + 4)));
+    }
+    if (changed & BSS_CHANGED_BEACON_INT)
+    {
+        // 信标帧间隔调整
+        // 没写对应的寄存器, 硬件没有提供寄存器
+        pr_info("%s : WARNNING bss info changed becon int %x \n", WIRELESS_SIMU_DEVICE_NAME, info->beacon_int);
+        vif_priv->simu_simple.beacon_int = info->beacon_int;
+    }
+    if (changed & BSS_CHANGED_TXPOWER)
+    {
+        pr_info("%s : WARNNING bss info changed tx power %x \n", WIRELESS_SIMU_DEVICE_NAME, info->txpower);
+    }
+    if (changed & BSS_CHANGED_ERP_CTS_PROT)
+    {
+        pr_info("%s : WARNNING bsss info changed ctr protection %x", WIRELESS_SIMU_DEVICE_NAME, info->use_cts_prot);
+    }
+    if (changed & BSS_CHANGED_BASIC_RATES)
+    {
+        pr_info("%s : WARNNING bss info changed basic rates %x \n", WIRELESS_SIMU_DEVICE_NAME, info->basic_rates);
+    }
+    if (changed & (BSS_CHANGED_ERP_SLOT | BSS_CHANGED_ERP_PREAMBLE))
+    {
+        pr_info("%s : WARNNING BSS_CHANGED_ERP_SLOT BSS_CHANGED_ERP_PREAMBLE short slot %d \n", WIRELESS_SIMU_DEVICE_NAME, info->use_short_slot);
+        priv->simu_simple.use_short_slot = info->use_short_slot;
+    }
+    if (changed & BSS_CHANGED_BEACON_ENABLED)
+    {
+        printk("%s : WARNNING bss info changed enable beacon %d \n", WIRELESS_SIMU_DEVICE_NAME, info->enable_beacon);
+        vif_priv->simu_simple.enable_beacon = info->enable_beacon;
+    }
+    if (changed & (BSS_CHANGED_BEACON_ENABLED | BSS_CHANGED_BEACON))
+    {
+        cancel_delayed_work_sync(&vif_priv->simu_simple.beacon_work);
+        pr_info("%s WARNNING bss info changed beacon changed \n", WIRELESS_SIMU_DEVICE_NAME);
+        if (vif_priv->simu_simple.enable_beacon)
+        {
+            schedule_work(&vif_priv->simu_simple.beacon_work.work);
+            pr_info("%s : WARNNING bss info start beacon_work \n", WIRELESS_SIMU_DEVICE_NAME);
+        }
+    }
 }
 
 static int wireless_mac80211_conf_tx(struct ieee80211_hw *hw,
@@ -439,6 +614,21 @@ static int wireless_mac80211_set_antenna(struct ieee80211_hw *hw,
                                          u32 tx_ant,
                                          u32 rx_ant)
 {
+    struct wireless_simu *priv = hw->priv;
+
+    pr_info("%s : mac set antenna tx_ant %d rx_ant %d \n", WIRELESS_SIMU_DEVICE_NAME, tx_ant, rx_ant);
+
+    // 检查天线参数是否合法, 是否超出了当前设备支持的天线标号
+    // 这里的天线参数指的是 tx_ant 和 tx_ant ，不同的天线参数由驱动定义其含义, 比如在 simu_simple 中 tx_ant = 1/2 代表开启两个天线之一 3 代表两天线全部开启
+
+    // 根据上方的天线参数设置设备上不同天线的开启和关闭状态, 所谓关闭, 指的是将天线的射频信号衰减设置为一个超大的值, 比如 89750
+    // 注意对于多天线的设备，要保证每个天线都被设置上正确的参数
+
+    // simu_simple在驱动中对硬件的天线进行配置, 可能和它使用 AD9361 相关, 系统中提供了对应的驱动
+    // 这样的配置包括配置无线射频芯片的 本振 和 频偏
+    priv->simu_simple.runtime_tx_ant_cfg = tx_ant;
+    priv->simu_simple.runtime_tx_ant_cfg = rx_ant;
+
     return 0;
 }
 
@@ -446,6 +636,13 @@ static int wireless_mac80211_get_antenna(struct ieee80211_hw *hw,
                                          u32 *tx_ant,
                                          u32 *rx_ant)
 {
+    struct wireless_simu *priv = hw->priv;
+
+    *tx_ant = priv->simu_simple.runtime_tx_ant_cfg;
+    *rx_ant = priv->simu_simple.runtime_rx_ant_cfg;
+
+    pr_info("%s : mac get antenna tx ant %d rx_ant %d \n", WIRELESS_SIMU_DEVICE_NAME, *tx_ant, *rx_ant);
+
     return 0;
 }
 
@@ -526,19 +723,20 @@ static void wireless_mac80211_reset_tsf(struct ieee80211_hw *hw, struct ieee8021
 
 static const struct ieee80211_ops wireless_mac80211_ops = {
     // 该部分必须完成, 否则无法申请ieee80211_hw结构体内存
-    .tx = wireless_mac80211_tx,
+    .tx = simu_simple_tx, // wireless_mac80211_tx,
     .start = wireless_mac80211_start,
     .stop = wireless_mac80211_stop,
-    .config = wireless_mac80211_config,
     .add_interface = wireless_mac80211_add_interface,
     .remove_interface = wireless_mac80211_remove_interface,
+    .config = wireless_mac80211_config,
+    .set_antenna = wireless_mac80211_set_antenna,
+    .get_antenna = wireless_mac80211_get_antenna,
     .configure_filter = wireless_mac80211_configure_filter,
     .wake_tx_queue = ieee80211_handle_wake_tx_queue, // 这个是最新版linux新添加的强制性接口
-
-    // 该部分可自行选择满足, 参考ath11k, 保留的参考openwifi
+    .bss_info_changed = wireless_mac80211_bss_info_changed,
+    // 该部分可自行选择满足, 参考ath11k, 保留的参考simu_simple
     // .reconfig_complete = ,
     // .update_vif_offload = ,
-    .bss_info_changed = wireless_mac80211_bss_info_changed,
     // .hw_scan = ,
     // .cancel_hw_scan = ,
     // .set_key = ,
@@ -548,8 +746,6 @@ static const struct ieee80211_ops wireless_mac80211_ops = {
     // .sta_set_txpwr = ,
     // .sta_rc_update = ,
     .conf_tx = wireless_mac80211_conf_tx,
-    .set_antenna = wireless_mac80211_set_antenna,
-    .get_antenna = wireless_mac80211_get_antenna,
     .ampdu_action = wireless_mac80211_ampdu_action,
     .add_chanctx = wireless_mac80211_add_chanctx,
     .remove_chanctx = wireless_mac80211_remove_chanctx,
@@ -572,7 +768,7 @@ static const struct ieee80211_ops wireless_mac80211_ops = {
         // .remain_on_channel = ,
         // .cancel_remain_on_channel = ,
 
-        // 下面为openwifi中实现但ath11k中没有的，可能是因为softmac和full mac的不同吧
+        // 下面为simu_simple中实现但ath11k中没有的，可能是因为softmac和full mac的不同吧
         .prepare_multicast = wireless_mac80211_prepare_multicast,
     .rfkill_poll = wireless_mac80211_rfkill_poll,
     .get_tsf = wireless_mac80211_get_tsf,

@@ -72,6 +72,14 @@ struct wireless_simu_vif
 	struct wireless_simu_tx_params_arg ac_bk;
 	struct wireless_simu_tx_params_arg ac_vi;
 	struct wireless_simu_tx_params_arg ac_vo;
+
+	struct {
+		u32 bssid_low;
+		u32 bssid_hi;
+		struct delayed_work beacon_work;
+		u16 beacon_int;
+		bool enable_beacon;
+	}simu_simple;
 };
 
 struct wireless_simu_sta
@@ -311,5 +319,7 @@ int wireless_mac80211_core_remove(struct wireless_simu *priv);
 int wireless_mac80211_wait_tx_complete(struct wireless_simu *priv);
 
 void wireless_mac80211_drain_tx(struct wireless_simu *priv);
+
+void wireless_sample_send_cb(struct wireless_simu *priv, struct sk_buff *skb);
 
 #endif /*WIRELESS_MAC80211*/

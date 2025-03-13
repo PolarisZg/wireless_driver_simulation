@@ -24,12 +24,13 @@ const struct ce_attr wireless_simu_ce_config[] = {
         .dest_nentries = 512,
     },
 
-    /* CE2 : no used */
+    /* CE2 : simu_simple src tx */
     {
         .flags = CE_ATTR_FLAGS,
-        .src_nentries = 0,
-        .src_sz_max = 0,
+        .src_nentries = 32,
+        .src_sz_max = 2048,
         .dest_nentries = 0,
+        .send_cb = wireless_sample_send_cb, 
     },
 
     /* CE3 : no used */
@@ -214,7 +215,7 @@ int wireless_simu_ce_send(struct wireless_simu *priv, struct sk_buff *skb, u8 pi
 
     /* todo 关于 timer 的不太懂 */
 
-    spin_lock_bh(&srng->lock);
+    spin_unlock_bh(&srng->lock);
 
     spin_unlock_bh(&ce->ce_lock);
 
@@ -305,6 +306,8 @@ err_unlock:
 
 static void wireless_ce_tx_process_cb(struct wireless_simu_ce_pipe *pipe)
 {
+    pr_info("%s : wireless_ce_tx process cb start \n", WIRELESS_SIMU_DEVICE_NAME);
+
     struct wireless_simu *priv = pipe->priv;
     struct sk_buff *skb;
     struct sk_buff_head list;
@@ -347,9 +350,13 @@ static void wireless_ce_tx_process_cb(struct wireless_simu_ce_pipe *pipe)
                 {
                     info->flags |= IEEE80211_TX_STAT_ACK;
                     ;
+                } else {
+                    info->flags |= IEEE80211_TX_STAT_NOACK_TRANSMITTED;
                 }
 
                 ieee80211_tx_status_irqsafe(priv->hw, msdu);
+
+                pr_info("%s : wireless_ce_tx irq_safe \n", WIRELESS_SIMU_DEVICE_NAME);
 
                 atomic_dec_if_positive(&priv->num_pending_mgmt_tx);
             }

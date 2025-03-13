@@ -14,6 +14,10 @@ irqreturn_t wireless_simu_irq_handler(int irq, void *dev)
         tasklet_schedule(&priv->st_dst.pipes[0].intr_tq);
         // pr_info("%s : interrupt dst sche end \n", WIRELESS_SIMU_DEVICE_NAME);
         break;
+    case WIRELESS_SIMU_IRQ_STATUS_MGMT_TX_END ... WIRELESS_SIMU_IRQ_STATUS_MGMT_TX_END_TAIL:
+        // 暂时只有 pipe0 发送 mgmt 帧
+        tasklet_schedule(&priv->ce.ce_pipe[irq_status - WIRELESS_SIMU_IRQ_STATUS_MGMT_TX_END].intr_tq);
+        break;
     default:
         break;
     }

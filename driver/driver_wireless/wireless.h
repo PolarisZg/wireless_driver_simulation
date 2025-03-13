@@ -230,6 +230,13 @@ struct wireless_simu
     struct wireless_simu_ce ce;
 
     bool stop;
+
+    struct {
+        u32 runtime_tx_ant_cfg;
+        u32 runtime_rx_ant_cfg;
+        bool use_short_slot;
+    } simu_simple;
+
 };
 
 #endif
