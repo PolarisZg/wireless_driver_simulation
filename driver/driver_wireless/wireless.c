@@ -265,7 +265,7 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
     // }
     // pr_info("%s : ce pipes init succeed \n", WIRELESS_SIMU_DEVICE_NAME);
 
-    // wireless_simu_hal_srng_dst_test_init(priv); // 先初始化dst ring
+    wireless_simu_hal_srng_dst_test_init(priv); // 先初始化dst ring
 
     /* 尝试发一些数据 */
     // wireless_simu_hal_srng_test(priv);
