@@ -3,9 +3,9 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/linux-stable/include",
-                "/usr/src/linux-headers-6.8.0-45-generic/include",
+                // "${workspaceFolder}/**",
+                // "${workspaceFolder}/linux-stable/include",
+                "/usr/src/linux-headers-6.8.0-49-generic/include",
                 // "/usr/src/linux-hwe-6.5-headers-6.5.0-44/include/",
                 "/usr/include/**"
             ],
@@ -16,7 +16,8 @@
                 "CONFIG_NL80211_TESTMODE",
                 "CONFIG_PCI_MSI",
                 "CONFIG_PCI",
-                "CONFIG_LOCKDEP"
+                "CONFIG_LOCKDEP",
+                "CONFIG_PRINTK",
             ],
             "cStandard": "c17",
             "cppStandard": "c++14",

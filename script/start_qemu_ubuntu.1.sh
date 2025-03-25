@@ -7,10 +7,10 @@ timestamp=$(date +"%Y%m%d%H%M%S")
 
 sudo ../qemu_simudevice/build/qemu-system-x86_64 \
 -m 16G \
--drive format=qcow2,file=ubuntu.qcow2 \
+-drive format=qcow2,file=ubuntu.1.qcow2 \
 -enable-kvm \
 -net tap -net nic \
--vnc 10.129.19.237:20 \
+-vnc 10.129.19.237:21 \
 -device wirelesssimu \
 -device edu \
 -nographic \
