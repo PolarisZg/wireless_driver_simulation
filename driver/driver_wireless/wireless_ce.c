@@ -33,12 +33,13 @@ const struct ce_attr wireless_simu_ce_config[] = {
         .send_cb = wireless_sample_send_cb, 
     },
 
-    /* CE3 : no used */
+    /* CE3 : dst */
     {
         .flags = CE_ATTR_FLAGS,
         .src_nentries = 0,
         .src_sz_max = 0,
-        .dest_nentries = 0,
+        .dest_nentries = 512,
+        .recv_cb = wireless_sample_recv_cb,
     },
 
     /* CE4 : no used */

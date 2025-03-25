@@ -322,4 +322,6 @@ void wireless_mac80211_drain_tx(struct wireless_simu *priv);
 
 void wireless_sample_send_cb(struct wireless_simu *priv, struct sk_buff *skb);
 
+void wireless_sample_recv_cb(struct wireless_simu *priv, struct sk_buff *skb);
+
 #endif /*WIRELESS_MAC80211*/

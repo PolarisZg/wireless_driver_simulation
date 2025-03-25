@@ -6,6 +6,11 @@ void wireless_sample_send_cb(struct wireless_simu *priv, struct sk_buff *skb)
 }
 EXPORT_SYMBOL(wireless_sample_send_cb);
 
+void wireless_sample_recv_cb(struct wireless_simu *priv, struct sk_buff *skb){
+    pr_info("%s : sample recv cb end \n", WIRELESS_SIMU_DEVICE_NAME);
+}
+EXPORT_SYMBOL(wireless_sample_recv_cb);
+
 static void wireless_simu_mac_tx_end(int irq, struct wireless_simu *priv)
 {
     // 取出skb，或者其他东西，比如tx_info, ack 状态之类的

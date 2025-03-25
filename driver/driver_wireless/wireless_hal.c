@@ -1135,7 +1135,7 @@ void wireless_simu_hal_srng_test(struct wireless_simu *priv)
 		goto err_clear_pipes;
 	}
 	memset(data, 6, 4);
-	memset((void *)data + data_size - 4, 7, 4);
+	strcpy((char *)data + data_size - 4, "abc");
 
 	/* 转移数据至skb */
 	struct sk_buff *skb;
