@@ -1410,12 +1410,16 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 		/* skb 逻辑处理
 		 * 打印
 		 */
-		DEFINE_SPINLOCK(print_skb_lock);
-		spin_lock(&print_skb_lock);
-		print_hex_dump(KERN_INFO, "wireless_simu : skb : ", DUMP_PREFIX_NONE, 16, 1, skb->data, skb->len, false);
-		spin_unlock(&print_skb_lock);
+		// DEFINE_SPINLOCK(print_skb_lock);
+		// spin_lock(&print_skb_lock);
+		// // print_hex_dump(KERN_INFO, "wireless_simu : skb : ", DUMP_PREFIX_NONE, 16, 1, skb->data, skb->len, false);
+		// /* 本来这是个测试的路径, 不应该在这里进行收发包的 但是这个路径太方便了 */
+		// spin_unlock(&print_skb_lock);
 
-		dev_kfree_skb_any(skb);
+		// dev_kfree_skb_any(skb);
+
+		/* 这个交给 mac80211 协议栈去释放空间就好 */
+		wireless_sample_recv_cb(priv, skb);
 	}
 
 	// 遍历 DST 申请DMA空间并填充至其中

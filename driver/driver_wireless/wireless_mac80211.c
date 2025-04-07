@@ -8,6 +8,14 @@ EXPORT_SYMBOL(wireless_sample_send_cb);
 
 void wireless_sample_recv_cb(struct wireless_simu *priv, struct sk_buff *skb){
     pr_info("%s : sample recv cb end \n", WIRELESS_SIMU_DEVICE_NAME);
+    struct ieee80211_hw *dev = priv->hw;
+    struct ieee80211_rx_status rx_status = {0};
+
+    rx_status.antenna = priv->simu_simple.runtime_rx_ant_cfg;
+
+    memcpy(IEEE80211_SKB_RXCB(skb), &rx_status, sizeof(rx_status));
+    ieee80211_rx_irqsafe(dev, skb);
+
 }
 EXPORT_SYMBOL(wireless_sample_recv_cb);
 
