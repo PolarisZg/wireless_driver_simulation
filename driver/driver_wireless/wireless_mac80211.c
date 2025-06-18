@@ -3,6 +3,31 @@
 void wireless_sample_send_cb(struct wireless_simu *priv, struct sk_buff *skb)
 {
     pr_info("%s : sample send cb end \n", WIRELESS_SIMU_DEVICE_NAME);
+    struct ieee80211_hw *dev = priv->hw;
+    // 需要添加 tx 发送完成之后帧的操作
+    struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+    bool use_ht_aggr = ((info->flags&IEEE80211_TX_CTL_AMPDU)!=0);
+    bool tx_fail = true;
+    bool pkt_need_ack = pkt_need_ack = (!(info->flags & IEEE80211_TX_CTL_NO_ACK));
+    struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+    u32 addr1_low32 = = *((u32*)(hdr->addr1+2));
+
+
+    ieee80211_tx_info_clear_status(info);
+
+    if(use_ht_aggr) {
+        printk("%s : sample send cb : dont support ht_aggr \n", WIRELESS_SIMU_DEVICE_NAME);
+        info->flags |= IEEE80211_TX_STAT_AMPDU;
+    } else {
+        tx_fail = false;
+        info->flags &= (~IEEE80211_TX_CTL_AMPDU);
+    }
+
+    
+
+    
+    
+    ieee80211_tx_info_clear_status(dev, skb);
 }
 EXPORT_SYMBOL(wireless_sample_send_cb);
 
@@ -511,7 +536,8 @@ static void wireless_mac80211_configure_filter(struct ieee80211_hw *hw,
     struct wireless_simu *priv = hw->priv;
     mutex_lock(&priv->mac_conf_mutex);
 
-    *total_flags &= SUPPORT_FILTERS;
+    (*total_flags) &= SUPPORT_FILTERS;
+    (*total_flags) |= FIF_ALLMULTI;
     priv->filter_flags = *total_flags;
 
     mutex_unlock(&priv->mac_conf_mutex);
@@ -713,7 +739,8 @@ static int wireless_mac80211_testmode_cmd(struct ieee80211_hw *hw, struct ieee80
 static u64 wireless_mac80211_prepare_multicast(struct ieee80211_hw *hw,
                                                struct netdev_hw_addr_list *mc_list)
 {
-    return 0;
+    printk("%s: prepare_muticast \n", WIRELESS_SIMU_DEVICE_NAME);
+	return netdev_hw_addr_list_count(mc_list);
 }
 
 static void wireless_mac80211_rfkill_poll(struct ieee80211_hw *hw)

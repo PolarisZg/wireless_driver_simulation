@@ -13,9 +13,9 @@ sudo ../qemu_simudevice/build/qemu-system-x86_64 \
 -vnc 10.129.19.237:21 \
 -device wirelesssimu \
 -device edu \
--nographic \
--D qemu.log -d int,guest_errors \
-2>&1 | tee qemu_stdout.${timestamp}.log
+-nographic 
+# -D qemu.log -d int,guest_errors \
+# 2>&1 | tee qemu_stdout.${timestamp}.log
 # -cdrom ./ubuntu-22.04.4-desktop-amd64.iso
 
 # 下方的暂时无用
