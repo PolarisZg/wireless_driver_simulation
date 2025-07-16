@@ -8,9 +8,9 @@ void wireless_sample_send_cb(struct wireless_simu *priv, struct sk_buff *skb)
     struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
     bool use_ht_aggr = ((info->flags&IEEE80211_TX_CTL_AMPDU)!=0);
     bool tx_fail = true;
-    bool pkt_need_ack = pkt_need_ack = (!(info->flags & IEEE80211_TX_CTL_NO_ACK));
+    bool pkt_need_ack = (!(info->flags & IEEE80211_TX_CTL_NO_ACK));
     struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-    u32 addr1_low32 = = *((u32*)(hdr->addr1+2));
+    u32 addr1_low32 = *((u32*)(hdr->addr1+2));
 
 
     ieee80211_tx_info_clear_status(info);
