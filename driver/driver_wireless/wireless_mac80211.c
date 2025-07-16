@@ -764,6 +764,10 @@ static void wireless_mac80211_reset_tsf(struct ieee80211_hw *hw, struct ieee8021
 {
 }
 
+static int wireless_mac80211_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, struct ieee80211_scan_request *req)
+ {
+    return 1;
+ }
 static const struct ieee80211_ops wireless_mac80211_ops = {
     // 该部分必须完成, 否则无法申请ieee80211_hw结构体内存
     .tx = simu_simple_tx, // wireless_mac80211_tx,
@@ -817,6 +821,7 @@ static const struct ieee80211_ops wireless_mac80211_ops = {
     .get_tsf = wireless_mac80211_get_tsf,
     .set_tsf = wireless_mac80211_set_tsf,
     .reset_tsf = wireless_mac80211_reset_tsf,
+    .hw_scan = wireless_mac80211_hw_scan,
 };
 
 enum wireless_simu_err_code
