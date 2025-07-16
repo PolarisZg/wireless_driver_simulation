@@ -146,5 +146,5 @@
     },
     "C_Cpp.errorSquiggles": "disabled",
     "C_Cpp.default.compilerPath": "/usr/bin/gcc-12",
-    "editor.fontSize": 14
+    "editor.fontSize": 12
 }

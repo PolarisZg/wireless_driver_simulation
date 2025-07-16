@@ -16,18 +16,21 @@ void wireless_sample_send_cb(struct wireless_simu *priv, struct sk_buff *skb)
     ieee80211_tx_info_clear_status(info);
 
     if(use_ht_aggr) {
-        printk("%s : sample send cb : dont support ht_aggr \n", WIRELESS_SIMU_DEVICE_NAME);
+        pr_info("%s : sample send cb : dont support ht_aggr \n", WIRELESS_SIMU_DEVICE_NAME);
         info->flags |= IEEE80211_TX_STAT_AMPDU;
     } else {
         tx_fail = false;
         info->flags &= (~IEEE80211_TX_CTL_AMPDU);
     }
 
+    // 填充速率和天线配置
+    info->status.rates[0].count = 1;
+    info->status.rates[0].idx = 0; // 默认速率索引
+    info->status.rates[1].idx = -1; // 结束标志
+    info->status.antenna = priv->simu_simple.runtime_tx_ant_cfg;
     
-
-    
-    
-    ieee80211_tx_info_clear_status(dev, skb);
+    ieee80211_tx_status_irqsafe(dev, skb);
+    pr_info("%s : sample send cb end \n", WIRELESS_SIMU_DEVICE_NAME);
 }
 EXPORT_SYMBOL(wireless_sample_send_cb);
 
