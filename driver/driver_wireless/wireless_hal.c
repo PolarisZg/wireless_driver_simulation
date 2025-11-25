@@ -1410,6 +1410,21 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 		/* skb 逻辑处理
 		 * 打印
 		 */
+		/* 创建新的SKB，只保留数据部分 */
+		struct sk_buff *new_skb;
+		
+		/* 分配新的SKB，大小与原SKB数据长度相同 */
+		new_skb = alloc_skb(skb->len, GFP_ATOMIC);
+		if (!new_skb) {
+			pr_err("%s: Failed to allocate new skb\n", WIRELESS_SIMU_DEVICE_NAME);
+			dev_kfree_skb_any(skb);  /* 分配失败也要释放原SKB */
+			continue;
+		}
+		
+		/* 保留数据部分：将原SKB的数据复制到新SKB */
+		skb_put_data(new_skb, skb->data, skb->len);
+		dev_kfree_skb_any(skb);
+		
 		// DEFINE_SPINLOCK(print_skb_lock);
 		// spin_lock(&print_skb_lock);
 		// // print_hex_dump(KERN_INFO, "wireless_simu : skb : ", DUMP_PREFIX_NONE, 16, 1, skb->data, skb->len, false);
@@ -1419,7 +1434,7 @@ static void wireless_simu_irq_hal_srng_dst_dma_test(struct wireless_simu *priv, 
 		// dev_kfree_skb_any(skb);
 
 		/* 这个交给 mac80211 协议栈去释放空间就好 */
-		wireless_sample_recv_cb(priv, skb);
+		wireless_sample_recv_cb(priv, new_skb);
 	}
 
 	// 遍历 DST 申请DMA空间并填充至其中

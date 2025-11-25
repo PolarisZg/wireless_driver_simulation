@@ -33,6 +33,7 @@
 #include "wireless_hif.h"
 #include "wireless_irq.h"
 #include "wireless_core.h"
+#include "mac80211_hwsim.h"
 
 #define WIRELESS_SIMU_DEVICE_NAME "wirelesssimu"
 #define WIRELESS_SIMU_RX_POST_RETRY_JIFFIES 50
@@ -185,6 +186,8 @@ struct wireless_simu
 
     unsigned int filter_flags;
     struct ieee80211_supported_band band_2GHZ;
+    struct ieee80211_channel channels_2ghz[14];
+    struct ieee80211_rate rates[12];
     struct ieee80211_supported_band band_5GHZ;
     struct ieee80211_supported_band band_6GHZ;
     bool tx_interrupt_enable;

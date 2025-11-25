@@ -11,7 +11,8 @@ wireless_htc.o \
 wireless_ce.o \
 wireless_hal.o \
 wireless_hif.o \
-wireless_irq.o
+wireless_irq.o \
+mac80211_hwsim.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

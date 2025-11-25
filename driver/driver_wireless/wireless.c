@@ -276,7 +276,8 @@ static int wireless_simu_pci_probe(struct pci_dev *pdev, const struct pci_device
         ret = -1;
         goto End;
     }
-    wireless_mac80211_core_probe(priv);
+    // wireless_mac80211_core_probe(priv);
+    init_mac80211_hwsim(priv);
     return 0;
 
 End:
@@ -297,7 +298,8 @@ static void wireless_simu_pci_remove(struct pci_dev *pdev)
         priv->stop = true;
 
         /* 停 mac80211 子系统*/
-        wireless_mac80211_core_remove(priv);
+        // wireless_mac80211_core_remove(priv);
+        exit_mac80211_hwsim();
 
         /* 停掉中断系统
          *
